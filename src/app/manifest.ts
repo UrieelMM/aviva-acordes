@@ -2,13 +2,13 @@ import type { MetadataRoute } from "next";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Alabanza App",
-    short_name: "Alabanza",
+    name: "Acorde · Alabanza App",
+    short_name: "Acorde",
     description: "Herramienta para organizar canciones, ensayos y setlists del grupo de alabanza.",
     start_url: "/",
     display: "standalone",
-    background_color: "#f8f4ec",
-    theme_color: "#d97706",
+    background_color: "#f8fafc",
+    theme_color: "#4f46e5",
     lang: "es-MX",
     icons: [
       {

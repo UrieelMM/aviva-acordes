@@ -3,14 +3,17 @@ import { AppProviders } from "@/components/providers/app-providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Alabanza App",
-  description: "Base inicial para administrar ensayos, canciones y setlists de un grupo de alabanza.",
+  title: {
+    default: "Acorde · Alabanza App",
+    template: "%s · Acorde",
+  },
+  description: "Canciones, arreglos y setlists para equipos de alabanza.",
   manifest: "/manifest.webmanifest",
   applicationName: "Alabanza App",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Alabanza App",
+    title: "Acorde",
   },
   formatDetection: {
     telephone: false,
@@ -23,8 +26,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" className="h-full antialiased">
-      <body className="min-h-full flex flex-col">
+    <html lang="es" className="h-full antialiased" data-theme="studio" suppressHydrationWarning>
+      <body className="min-h-full">
         <AppProviders>{children}</AppProviders>
       </body>
     </html>

@@ -4,6 +4,9 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { useState } from "react";
 import { Toaster } from "sonner";
+import { DatabaseBootstrap } from "@/components/providers/database-bootstrap";
+import { ServiceWorkerCleanup } from "@/components/providers/service-worker-cleanup";
+import { ThemeSync } from "@/components/providers/theme-sync";
 
 export function AppProviders({ children }: { children: React.ReactNode }) {
   const [queryClient] = useState(
@@ -20,13 +23,16 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <ThemeSync />
+      <DatabaseBootstrap />
+      {process.env.NODE_ENV === "development" ? <ServiceWorkerCleanup /> : null}
       {children}
       <Toaster
         position="top-right"
         richColors
         toastOptions={{
-          style: {
-            borderRadius: "16px",
+          classNames: {
+            toast: "!rounded-2xl !border-app-border !bg-app-surface !text-app-text",
           },
         }}
       />

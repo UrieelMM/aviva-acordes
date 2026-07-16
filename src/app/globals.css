@@ -1,29 +1,77 @@
 @import "tailwindcss";
 
-:root {
-  --background: #f8f4ec;
-  --foreground: #1f2937;
-  --surface: rgba(255, 255, 255, 0.7);
-  --surface-strong: rgba(255, 255, 255, 0.92);
-  --border: rgba(148, 163, 184, 0.25);
-  --accent: #d97706;
-  --accent-strong: #92400e;
-  --success: #166534;
-  --muted: #64748b;
+:root,
+[data-theme="studio"] {
+  --app-bg: #f8fafc;
+  --app-surface: #ffffff;
+  --app-surface-muted: #f1f5f9;
+  --app-surface-raised: #ffffff;
+  --app-border: #e2e8f0;
+  --app-text: #0f172a;
+  --app-text-secondary: #475569;
+  --app-primary: #4f46e5;
+  --app-primary-hover: #4338ca;
+  --app-primary-soft: #e0e7ff;
+  --app-primary-ink: #3730a3;
+  --app-glow: rgba(79, 70, 229, 0.14);
+  --app-success: #059669;
+  --app-warning: #d97706;
+  --app-danger: #dc2626;
+  color-scheme: light;
+}
+[data-theme="worship"] {
+  --app-primary: #059669;
+  --app-primary-hover: #047857;
+  --app-primary-soft: #d1fae5;
+  --app-primary-ink: #065f46;
+  --app-glow: rgba(5, 150, 105, 0.14);
+}
+
+[data-theme="stage"] {
+  --app-primary: #7c3aed;
+  --app-primary-hover: #6d28d9;
+  --app-primary-soft: #ede9fe;
+  --app-primary-ink: #5b21b6;
+  --app-glow: rgba(124, 58, 237, 0.14);
+}
+
+[data-theme="dark"] {
+  --app-bg: #020617;
+  --app-surface: #0f172a;
+  --app-surface-muted: #1e293b;
+  --app-surface-raised: #111c30;
+  --app-border: #263449;
+  --app-text: #f8fafc;
+  --app-text-secondary: #94a3b8;
+  --app-primary: #818cf8;
+  --app-primary-hover: #a5b4fc;
+  --app-primary-soft: #24245f;
+  --app-primary-ink: #c7d2fe;
+  --app-glow: rgba(129, 140, 248, 0.14);
+  --app-success: #34d399;
+  --app-warning: #fbbf24;
+  --app-danger: #f87171;
+  color-scheme: dark;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-surface: var(--surface);
-  --color-surface-strong: var(--surface-strong);
-  --color-border: var(--border);
-  --color-accent: var(--accent);
-  --color-accent-strong: var(--accent-strong);
-  --color-success: var(--success);
-  --color-muted: var(--muted);
-  --font-sans: "Avenir Next", "Segoe UI", sans-serif;
-  --font-mono: "SFMono-Regular", "SF Mono", "Menlo", monospace;
+  --color-app-bg: var(--app-bg);
+  --color-app-surface: var(--app-surface);
+  --color-app-surface-muted: var(--app-surface-muted);
+  --color-app-surface-raised: var(--app-surface-raised);
+  --color-app-border: var(--app-border);
+  --color-app-text: var(--app-text);
+  --color-app-secondary: var(--app-text-secondary);
+  --color-brand: var(--app-primary);
+  --color-brand-hover: var(--app-primary-hover);
+  --color-brand-soft: var(--app-primary-soft);
+  --color-brand-ink: var(--app-primary-ink);
+  --color-app-success: var(--app-success);
+  --color-app-warning: var(--app-warning);
+  --color-app-danger: var(--app-danger);
+  --font-sans: "Avenir Next", "Segoe UI Variable", "Helvetica Neue", sans-serif;
+  --font-display: "Avenir Next Condensed", "Avenir Next", "Segoe UI Variable", sans-serif;
+  --font-mono: "SFMono-Regular", "SF Mono", Menlo, monospace;
 }
 
 * {
@@ -31,33 +79,122 @@
 }
 
 html {
-  background:
-    radial-gradient(circle at top left, rgba(249, 115, 22, 0.14), transparent 32%),
-    radial-gradient(circle at top right, rgba(250, 204, 21, 0.16), transparent 24%),
-    linear-gradient(180deg, #fff9f0 0%, #f7efe3 45%, #f2ede8 100%);
+  min-height: 100%;
+  background: var(--app-bg);
+  scroll-behavior: smooth;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-geist-sans), sans-serif;
+  min-height: 100%;
+  margin: 0;
+  background:
+    radial-gradient(circle at 82% -8%, var(--app-glow), transparent 28rem),
+    var(--app-bg);
+  color: var(--app-text);
+  font-family: var(--font-sans);
+  transition: background-color 180ms ease, color 180ms ease;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
 }
 
 a {
-  color: inherit;
+  text-decoration: none;
 }
 
 ::selection {
-  background: rgba(217, 119, 6, 0.2);
+  background: var(--app-primary-soft);
+  color: var(--app-primary-ink);
 }
 
-.glass-panel {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  backdrop-filter: blur(18px);
+:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--app-primary) 38%, transparent);
+  outline-offset: 2px;
 }
 
-.section-title {
+.app-card {
+  border: 1px solid var(--app-border);
+  background: color-mix(in srgb, var(--app-surface) 96%, transparent);
+  box-shadow: 0 18px 45px -32px rgba(15, 23, 42, 0.32);
+}
+
+.subtle-grid {
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, var(--app-border) 55%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, var(--app-border) 55%, transparent) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.chord-sheet .chord {
+  color: var(--app-primary);
+  font-weight: 750;
+}
+
+.chord-sheet .row {
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  align-items: flex-start;
+  flex-wrap: nowrap;
+  margin-bottom: 0.7rem;
+}
+
+.chord-sheet .column {
+  flex: 0 0 auto;
+}
+
+.chord-sheet .chord:not(:last-child) {
+  padding-right: 0.65rem;
+}
+
+.chord-sheet .chord::after,
+.chord-sheet .lyrics::after {
+  content: "\200b";
+}
+
+.chord-sheet .lyrics {
+  white-space: pre;
+}
+
+.chord-sheet .paragraph {
+  margin-bottom: 1.8rem;
+}
+
+.chord-sheet .label {
+  display: inline-flex;
+  margin-bottom: 0.9rem;
+  border-radius: 999px;
+  background: var(--app-primary-soft);
+  padding: 0.3rem 0.7rem;
+  color: var(--app-primary-ink);
+  font-size: 0.72rem;
+  font-weight: 800;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+}
+
+.stage-gradient {
+  background:
+    radial-gradient(circle at 50% -20%, rgba(99, 102, 241, 0.22), transparent 34rem),
+    #020617;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
