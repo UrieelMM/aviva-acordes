@@ -39,6 +39,28 @@ export function transformChordPro(source: string, semitones: number, notation: N
 }
 
 export function transposeKey(key: string, semitones: number, preferFlats = false) {
-  return transposeRoot(key, semitones, preferFlats);
+  const match = key.trim().match(/^([A-G](?:#|b)?)(.*)$/);
+  if (!match) return key;
+  return `${transposeRoot(match[1], semitones, preferFlats)}${match[2]}`;
 }
 
+/** Human-readable movement for every place where a song can be transposed. */
+export function formatTransposeInterval(semitones: number) {
+  if (semitones === 0) return "Tono original · 0 semitonos";
+
+  const amount = Math.abs(semitones);
+  const direction = semitones > 0 ? "Subiste" : "Bajaste";
+  const semitoneLabel = `${amount} semitono${amount === 1 ? "" : "s"}`;
+  const wholeTones = Math.floor(amount / 2);
+  const remainingSemitone = amount % 2;
+  const parts: string[] = [];
+
+  if (wholeTones) parts.push(`${wholeTones} tono${wholeTones === 1 ? "" : "s"}`);
+  if (remainingSemitone && wholeTones) parts.push("1 semitono");
+
+  return `${direction} ${semitoneLabel}${parts.length ? ` (${parts.join(" + ")})` : ""}`;
+}
+
+export function formatSignedSemitones(semitones: number) {
+  return semitones > 0 ? `+${semitones}` : String(semitones);
+}

@@ -3,12 +3,13 @@
 import { ChordProParser, HtmlDivFormatter } from "chordsheetjs";
 import { useLiveQuery } from "dexie-react-hooks";
 import Link from "next/link";
-import { AudioLines, BookOpen, Drum, Edit3, Guitar, KeyboardMusic, Minus, MoreHorizontal, Music, Plus, RotateCcw, StickyNote, Volume2 } from "lucide-react";
+import { AudioLines, BookOpen, Drum, Edit3, Guitar, KeyboardMusic, Minus, Music, Plus, RotateCcw, SlidersHorizontal, StickyNote, Volume2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge, Button, Card, PageHeader, cx } from "@/components/ui/primitives";
+import { sanitizeChordSheetHtml } from "@/lib/chordpro";
 import { getSongRecord, type SongRecord } from "@/lib/indexed-db";
-import { transformChordPro, transposeKey } from "@/lib/music";
+import { formatSignedSemitones, formatTransposeInterval, transformChordPro, transposeKey } from "@/lib/music";
 import { playReferenceTone } from "@/lib/tone";
 import { useUiStore } from "@/stores/ui-store";
 import type { InstrumentView } from "@/types/domain";
@@ -39,14 +40,14 @@ function SongViewerContent({ song }: { song: SongRecord }) {
   const [capo, setCapo] = useState(0);
   const displayShift = instrument === "guitar" ? transpose - capo : transpose;
   const transformed = transformChordPro(song.chordProSource, displayShift, notation, song.originalKey.includes("b"));
-  const html = new HtmlDivFormatter().format(new ChordProParser().parse(transformed));
+  const html = sanitizeChordSheetHtml(new HtmlDivFormatter().format(new ChordProParser().parse(transformed)));
   const targetKey = transposeKey(song.originalKey, transpose, song.originalKey.includes("b"));
   const formsKey = transposeKey(song.originalKey, displayShift, song.originalKey.includes("b"));
   const visibleNotes = song.notes.filter((note) => note.instrument === "general" || note.instrument === instrument);
 
   return (
     <div className="space-y-6">
-      <PageHeader backHref="/songs" eyebrow="Canción" title={song.title} description={song.artist} action={<div className="flex gap-2"><Button variant="secondary" size="icon"><MoreHorizontal className="size-4" /></Button><Link href={`/songs/${song.id}/edit`} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-hover"><Edit3 className="size-4" /> Editar</Link></div>} />
+      <PageHeader backHref="/songs" eyebrow="Canción" title={song.title} description={song.artist} action={<div className="flex gap-2"><Link href={`/songs/${song.id}/edit`} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-hover"><Edit3 className="size-4" /> Editar</Link></div>} />
 
       <Card className="overflow-hidden">
         <div className="flex gap-1 overflow-x-auto border-b border-app-border p-2 sm:px-4">
@@ -54,9 +55,14 @@ function SongViewerContent({ song }: { song: SongRecord }) {
         </div>
         <div className="grid gap-3 p-4 lg:grid-cols-[1fr_auto_auto_auto] lg:items-center">
           <div className="flex flex-wrap items-center gap-2"><Badge tone="brand">Suena en {targetKey}</Badge>{instrument === "guitar" && capo > 0 ? <Badge>Formas en {formsKey}</Badge> : null}{instrument === "guitar" && capo > 0 ? <Badge tone="warning">Capo {capo}</Badge> : null}<span className="text-xs text-app-secondary">{song.tempo} bpm · {song.timeSignature} · {song.duration}</span></div>
-          <ControlGroup label="Transponer"><button onClick={() => setTranspose((value) => Math.max(-11, value - 1))}><Minus /></button><strong>{transpose > 0 ? `+${transpose}` : transpose}</strong><button onClick={() => setTranspose((value) => Math.min(11, value + 1))}><Plus /></button></ControlGroup>
-          {instrument === "guitar" ? <ControlGroup label="Capo"><button onClick={() => setCapo((value) => Math.max(0, value - 1))}><Minus /></button><strong>{capo}</strong><button onClick={() => setCapo((value) => Math.min(11, value + 1))}><Plus /></button></ControlGroup> : null}
+          <ControlGroup label="Semitonos"><button onClick={() => setTranspose((value) => Math.max(-11, value - 1))} aria-label="Bajar un semitono"><Minus /></button><strong className="min-w-7 text-center">{formatSignedSemitones(transpose)}</strong><button onClick={() => setTranspose((value) => Math.min(11, value + 1))} aria-label="Subir un semitono"><Plus /></button></ControlGroup>
+          {instrument === "guitar" ? <ControlGroup label="Capo"><button onClick={() => setCapo((value) => Math.max(0, value - 1))} aria-label="Bajar capo"><Minus /></button><strong className="min-w-6 text-center">{capo}</strong><button onClick={() => setCapo((value) => Math.min(11, value + 1))} aria-label="Subir capo"><Plus /></button></ControlGroup> : null}
           <div className="flex min-h-10 rounded-xl bg-app-surface-muted p-1"><button onClick={() => setNotation("latin")} className={cx("rounded-lg px-3 text-xs font-extrabold", notation === "latin" && "bg-app-surface text-brand shadow-sm")}>Do Re Mi</button><button onClick={() => setNotation("english")} className={cx("rounded-lg px-3 text-xs font-extrabold", notation === "english" && "bg-app-surface text-brand shadow-sm")}>C D E</button></div>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 border-t border-app-border bg-app-surface-muted/55 px-4 py-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-brand-ink"><SlidersHorizontal className="size-4" /></span>
+          <div className="min-w-0 flex-1"><p className="text-xs font-extrabold text-app-text">{formatTransposeInterval(transpose)}</p><p className="mt-0.5 text-[11px] text-app-secondary">Tono original {song.originalKey} · tono actual {targetKey}{instrument === "guitar" && capo > 0 ? ` · formas ${formsKey} con capo ${capo}` : ""}</p></div>
+          {transpose !== 0 || capo !== 0 ? <Button variant="ghost" size="sm" onClick={() => { setTranspose(0); setCapo(0); }}><RotateCcw className="size-3.5" /> Restablecer</Button> : null}
         </div>
       </Card>
 

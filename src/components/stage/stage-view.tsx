@@ -1,11 +1,13 @@
 "use client";
 
 import { ChordProParser, HtmlDivFormatter } from "chordsheetjs";
+import { useLiveQuery } from "dexie-react-hooks";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, Drum, Gauge, Guitar, KeyboardMusic, ListMusic, Maximize2, Minus, Pause, Play, Plus, Settings2, Type, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Drum, Gauge, Guitar, KeyboardMusic, ListMusic, LoaderCircle, Maximize2, Minus, Pause, Play, Plus, Settings2, Type, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import { getSetlist, getSong } from "@/data/demo";
-import { transformChordPro, transposeKey } from "@/lib/music";
+import { sanitizeChordSheetHtml } from "@/lib/chordpro";
+import { getSetlistRecord, listSongs, type SetlistRecord, type SongRecord } from "@/lib/indexed-db";
+import { formatTransposeInterval, transformChordPro, transposeKey } from "@/lib/music";
 import type { InstrumentView, Notation } from "@/types/domain";
 import { cx } from "@/components/ui/primitives";
 
@@ -17,7 +19,16 @@ const stageInstruments: Array<{ id: InstrumentView; label: string; icon: typeof 
 ];
 
 export function StageView({ setlistId }: { setlistId: string }) {
-  const setlist = getSetlist(setlistId);
+  const setlist = useLiveQuery(() => getSetlistRecord(setlistId), [setlistId], null);
+  const songs = useLiveQuery(() => listSongs(), [], []);
+  if (setlist === null) return <main className="stage-gradient flex h-dvh items-center justify-center"><LoaderCircle className="size-8 animate-spin text-indigo-300" /></main>;
+  if (!setlist) return <main className="stage-gradient flex h-dvh flex-col items-center justify-center p-8 text-center text-slate-100"><ListMusic className="size-12 text-slate-500" /><h1 className="mt-4 text-2xl font-bold">Setlist no encontrado</h1><Link href="/setlists" className="mt-5 rounded-xl bg-indigo-500 px-4 py-2 text-sm font-bold">Volver a setlists</Link></main>;
+  const availableItems = setlist.items.filter((item) => songs.some((song) => song.id === item.songId));
+  if (!availableItems.length) return <main className="stage-gradient flex h-dvh flex-col items-center justify-center p-8 text-center text-slate-100"><ListMusic className="size-12 text-slate-500" /><h1 className="mt-4 text-2xl font-bold">Este setlist no tiene canciones disponibles</h1><Link href={`/setlists/${setlist.id}`} className="mt-5 rounded-xl bg-indigo-500 px-4 py-2 text-sm font-bold">Editar setlist</Link></main>;
+  return <StageContent key={setlist.updatedAt} setlist={{ ...setlist, items: availableItems }} songs={songs} />;
+}
+
+function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongRecord[] }) {
   const [songIndex, setSongIndex] = useState(0);
   const [instrument, setInstrument] = useState<InstrumentView>("general");
   const [notation, setNotation] = useState<Notation>("latin");
@@ -27,10 +38,10 @@ export function StageView({ setlistId }: { setlistId: string }) {
   const [controlsOpen, setControlsOpen] = useState(true);
   const scrollRef = useRef<HTMLDivElement>(null);
   const item = setlist.items[songIndex];
-  const song = getSong(item.songId);
+  const song = songs.find((entry) => entry.id === item.songId)!;
   const shift = instrument === "guitar" ? item.transposeSemitones - item.capo : item.transposeSemitones;
   const source = transformChordPro(song.chordProSource, shift, notation, song.originalKey.includes("b"));
-  const html = new HtmlDivFormatter().format(new ChordProParser().parse(source));
+  const html = sanitizeChordSheetHtml(new HtmlDivFormatter().format(new ChordProParser().parse(source)));
   const targetKey = transposeKey(song.originalKey, item.transposeSemitones, song.originalKey.includes("b"));
 
   useEffect(() => {
@@ -73,7 +84,7 @@ export function StageView({ setlistId }: { setlistId: string }) {
       <div className="relative min-h-0 flex-1">
         <div ref={scrollRef} className="h-full overflow-y-auto scroll-smooth px-4 pb-32 pt-8 sm:px-8 sm:pt-12">
           <article className="mx-auto max-w-4xl">
-            <header className="mb-10 border-b border-slate-800 pb-7"><div className="flex flex-wrap items-center gap-3 text-xs font-bold uppercase tracking-wider text-indigo-300"><span>Suena en {targetKey}</span>{instrument === "guitar" && item.capo > 0 ? <><span className="text-slate-600">·</span><span>Capo {item.capo}</span></> : null}<span className="text-slate-600">·</span><span>{song.tempo} bpm</span></div><h1 className="mt-3 font-display text-4xl font-bold tracking-tight text-white sm:text-6xl">{song.title}</h1><p className="mt-2 text-sm text-slate-400 sm:text-base">{song.artist}</p>{item.note ? <p className="mt-5 rounded-xl border border-amber-400/20 bg-amber-400/10 p-3 text-sm font-semibold text-amber-200">{item.note}</p> : null}</header>
+            <header className="mb-10 border-b border-slate-800 pb-7"><div className="flex flex-wrap items-center gap-3 text-xs font-bold uppercase tracking-wider text-indigo-300"><span>Suena en {targetKey}</span>{instrument === "guitar" && item.capo > 0 ? <><span className="text-slate-600">·</span><span>Capo {item.capo}</span></> : null}<span className="text-slate-600">·</span><span>{song.tempo} bpm</span></div><p className="mt-2 text-xs font-semibold text-slate-400">{formatTransposeInterval(item.transposeSemitones)} · original {song.originalKey}</p><h1 className="mt-3 font-display text-4xl font-bold tracking-tight text-white sm:text-6xl">{song.title}</h1><p className="mt-2 text-sm text-slate-400 sm:text-base">{song.artist}</p>{item.note ? <p className="mt-5 rounded-xl border border-amber-400/20 bg-amber-400/10 p-3 text-sm font-semibold text-amber-200">{item.note}</p> : null}</header>
             {instrument === "drums" ? <div className="space-y-4">{song.sections.map((section, index) => <div key={section.id} className="rounded-2xl border border-slate-800 bg-slate-900/70 p-5"><span className="text-xs font-bold uppercase tracking-wider text-indigo-300">{String(index + 1).padStart(2, "0")}</span><h2 className="mt-2 text-2xl font-bold">{section.label}</h2><p className="mt-2 text-slate-400">{song.notes.find((note) => note.sectionId === section.id && note.instrument === "drums")?.content ?? "Mantener dinámica y seguir al líder."}</p></div>)}</div> : <div className="chord-sheet stage-chords whitespace-normal text-slate-200 [&_.chord]:!text-indigo-300 [&_.label]:!bg-indigo-400/10 [&_.label]:!text-indigo-200" style={{ fontSize: `${fontSize}px`, lineHeight: 1.9 }} dangerouslySetInnerHTML={{ __html: html }} />}
           </article>
         </div>

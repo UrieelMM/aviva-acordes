@@ -1,8 +1,13 @@
 "use client";
 
+import { useLiveQuery } from "dexie-react-hooks";
 import { Bell, Check, Cloud, Database, Download, Languages, MonitorCog, Moon, Music2, Palette, ShieldCheck, Smartphone, Sprout, WandSparkles } from "lucide-react";
 import { toast } from "sonner";
+import { useFirebaseAuth } from "@/components/providers/firebase-auth-provider";
+import { useFirebaseSyncStatus } from "@/components/providers/firebase-sync-provider";
 import { Badge, Button, Card, PageHeader, cx } from "@/components/ui/primitives";
+import { isFirebaseConfigured, missingFirebaseEnvKeys } from "@/lib/firebase/client";
+import { getDbSummary } from "@/lib/indexed-db";
 import { themeOptions } from "@/lib/themes";
 import { useUiStore } from "@/stores/ui-store";
 import type { ThemeName } from "@/types/domain";
@@ -15,10 +20,13 @@ const themeIcons: Record<ThemeName, typeof Music2> = {
 };
 
 export function SettingsPage() {
+  const auth = useFirebaseAuth();
   const theme = useUiStore((state) => state.theme);
   const setTheme = useUiStore((state) => state.setTheme);
   const notation = useUiStore((state) => state.notation);
   const setNotation = useUiStore((state) => state.setNotation);
+  const sync = useFirebaseSyncStatus();
+  const summary = useLiveQuery(() => getDbSummary(), [sync.pending], { songs: 0, setlists: 0, pending: 0 });
 
   return (
     <div className="space-y-7 sm:space-y-8">
@@ -39,8 +47,8 @@ export function SettingsPage() {
         </div>
 
         <aside className="space-y-6">
-          <Card className="overflow-hidden"><div className="bg-brand p-5 text-white"><Smartphone className="size-6" /><h2 className="mt-5 font-display text-xl font-bold">Instalar Acorde</h2><p className="mt-2 text-sm leading-6 text-white/75">Abre tus canciones como una app y trabaja sin conexión.</p><Button className="mt-5 w-full !bg-white !text-brand-ink hover:!bg-white/90" onClick={() => toast.success("Acorde está listo para instalarse")}><Download className="size-4" /> Instalar PWA</Button></div><div className="space-y-3 p-5"><Status icon={<Cloud />} label="Sincronización" value="Actualizado" /><Status icon={<Database />} label="Datos offline" value="5 canciones" /><Status icon={<ShieldCheck />} label="Almacenamiento" value="Seguro" /></div></Card>
-          <Card className="p-5"><h2 className="font-display text-lg font-bold">Espacio de trabajo</h2><div className="mt-4 flex items-center gap-3"><span className="flex size-11 items-center justify-center rounded-xl bg-brand-soft text-brand-ink"><Music2 className="size-5" /></span><div><p className="text-sm font-bold">Equipo Central</p><p className="text-xs text-app-secondary">8 miembros · Administrador</p></div></div><Button variant="secondary" className="mt-5 w-full">Administrar equipo</Button></Card>
+          <Card className="overflow-hidden"><div className="bg-brand p-5 text-white"><Smartphone className="size-6" /><h2 className="mt-5 font-display text-xl font-bold">Instalar Acorde</h2><p className="mt-2 text-sm leading-6 text-white/75">Abre tus canciones como una app y trabaja sin conexión.</p><Button className="mt-5 w-full !bg-white !text-brand-ink hover:!bg-white/90" onClick={() => toast.success("Acorde está listo para instalarse")}><Download className="size-4" /> Instalar PWA</Button></div><div className="space-y-3 p-5"><Status icon={<Cloud />} label="Sincronización" value={sync.phase === "disabled" ? "Solo local" : sync.phase === "synced" ? "Actualizado" : sync.phase === "error" ? "Error" : sync.phase === "offline" ? "Sin conexión" : "Conectando"} /><Status icon={<Database />} label="Datos offline" value={`${summary.songs} canciones`} /><Status icon={<ShieldCheck />} label="Cambios pendientes" value={String(summary.pending)} /></div></Card>
+          <Card className="p-5"><div className="flex items-start justify-between gap-3"><div><h2 className="font-display text-lg font-bold">Espacio compartido</h2><p className="mt-1 text-xs leading-5 text-app-secondary">Canciones, setlists e historial son comunes para todos los usuarios autenticados.</p></div><Badge tone={isFirebaseConfigured ? sync.phase === "error" ? "warning" : "success" : "warning"}>{isFirebaseConfigured ? "Firebase" : "Sin configurar"}</Badge></div><div className="mt-4 flex items-center gap-3"><span className="flex size-11 items-center justify-center rounded-xl bg-brand-soft text-brand-ink"><Music2 className="size-5" /></span><div className="min-w-0"><p className="truncate text-sm font-bold">{auth.user?.displayName || "Equipo Central"}</p><p className="truncate text-xs text-app-secondary">{auth.user?.email ?? (isFirebaseConfigured ? "Conectando usuario…" : `${missingFirebaseEnvKeys.length} variables pendientes`)}</p></div></div><div className="mt-5 rounded-xl bg-app-surface-muted p-3 text-[11px] leading-5 text-app-secondary">{isFirebaseConfigured ? "Tu cuenta identifica los cambios del historial. Todos los usuarios con acceso leen y escriben las mismas colecciones." : "Copia .env.example como .env.local, pega las credenciales y reinicia el servidor."}</div></Card>
         </aside>
       </div>
     </div>

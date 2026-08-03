@@ -6,6 +6,7 @@ import { ArrowUpDown, BookOpenText, Check, ChevronRight, CircleDot, Grid2X2, Lis
 import { useDeferredValue, useState } from "react";
 import { Badge, Button, Card, PageHeader, cx } from "@/components/ui/primitives";
 import { dayjs } from "@/lib/dayjs";
+import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { listSongs } from "@/lib/indexed-db";
 
 type ViewMode = "list" | "grid";
@@ -25,7 +26,7 @@ export function SongLibrary() {
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      <PageHeader eyebrow="Biblioteca" title="Canciones" description={`${songs.length} canciones disponibles en este dispositivo.`} action={<Link href="/songs/new" className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-hover sm:w-auto"><Plus className="size-4" /> Nueva canción</Link>} />
+      <PageHeader eyebrow="Biblioteca" title="Canciones" description={`${songs.length} canciones disponibles ${isFirebaseConfigured ? "para todo el equipo" : "en este dispositivo"}.`} action={<Link href="/songs/new" className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-hover sm:w-auto"><Plus className="size-4" /> Nueva canción</Link>} />
 
       <Card className="p-3 sm:p-4">
         <div className="flex flex-col gap-3 xl:flex-row xl:items-center">

@@ -54,6 +54,26 @@
   color-scheme: dark;
 }
 
+/* The selected in-app theme must not change the authentication experience. */
+.auth-screen {
+  --app-bg: #f8fafc;
+  --app-surface: #ffffff;
+  --app-surface-muted: #f1f5f9;
+  --app-surface-raised: #ffffff;
+  --app-border: #e2e8f0;
+  --app-text: #0f172a;
+  --app-text-secondary: #475569;
+  --app-primary: #4f46e5;
+  --app-primary-hover: #4338ca;
+  --app-primary-soft: #e0e7ff;
+  --app-primary-ink: #3730a3;
+  --app-glow: rgba(79, 70, 229, 0.14);
+  --app-success: #059669;
+  --app-warning: #d97706;
+  --app-danger: #dc2626;
+  color-scheme: light;
+}
+
 @theme inline {
   --color-app-bg: var(--app-bg);
   --color-app-surface: var(--app-surface);
@@ -105,6 +125,18 @@ select {
 button,
 a {
   -webkit-tap-highlight-color: transparent;
+}
+
+button,
+a,
+[role="button"],
+[role="menuitem"] {
+  cursor: pointer;
+}
+
+button:disabled,
+[aria-disabled="true"] {
+  cursor: not-allowed;
 }
 
 a {

@@ -5,6 +5,8 @@ import { ReactQueryDevtools } from "@tanstack/react-query-devtools";
 import { useState } from "react";
 import { Toaster } from "sonner";
 import { DatabaseBootstrap } from "@/components/providers/database-bootstrap";
+import { FirebaseAuthProvider } from "@/components/providers/firebase-auth-provider";
+import { FirebaseSyncProvider } from "@/components/providers/firebase-sync-provider";
 import { ServiceWorkerCleanup } from "@/components/providers/service-worker-cleanup";
 import { ThemeSync } from "@/components/providers/theme-sync";
 
@@ -23,10 +25,13 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeSync />
-      <DatabaseBootstrap />
-      {process.env.NODE_ENV === "development" ? <ServiceWorkerCleanup /> : null}
-      {children}
+      <FirebaseAuthProvider>
+        <ThemeSync />
+        <DatabaseBootstrap />
+        <FirebaseSyncProvider />
+        {process.env.NODE_ENV === "development" ? <ServiceWorkerCleanup /> : null}
+        {children}
+      </FirebaseAuthProvider>
       <Toaster
         position="top-right"
         richColors

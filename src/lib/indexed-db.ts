@@ -1,5 +1,5 @@
 import Dexie, { type EntityTable } from "dexie";
-import { demoSongs } from "@/data/demo";
+import { demoSetlists, demoSongs } from "@/data/demo";
 import type { Setlist, Song } from "@/types/domain";
 
 export type SongRecord = Song & {
@@ -12,6 +12,18 @@ export type SetlistRecord = Setlist & {
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
+  syncStatus: "synced" | "pending";
+};
+
+export type ChangeHistoryRecord = {
+  id: string;
+  entity: "song" | "setlist";
+  entityId: string;
+  action: "create" | "update" | "archive" | "delete";
+  changedAt: string;
+  userId: string;
+  title: string;
+  snapshot?: unknown;
 };
 
 export type PendingOperation = {
@@ -23,11 +35,13 @@ export type PendingOperation = {
 };
 
 export type SongInput = Omit<Song, "id" | "updatedAt" | "status">;
+export type SetlistInput = Omit<Setlist, "id">;
 
 class WorshipDb extends Dexie {
   songs!: EntityTable<SongRecord, "id">;
   setlists!: EntityTable<SetlistRecord, "id">;
   pendingOperations!: EntityTable<PendingOperation, "id">;
+  history!: EntityTable<ChangeHistoryRecord, "id">;
 
   constructor() {
     super("alabanza-app");
@@ -65,6 +79,22 @@ class WorshipDb extends Dexie {
             delete song.chordPro;
           });
       });
+
+    this.version(3)
+      .stores({
+        songs: "id, title, artist, originalKey, updatedAt, archivedAt, deletedAt, status, *tags",
+        setlists: "id, name, date, status, syncStatus, updatedAt, deletedAt",
+        pendingOperations: "id, entity, entityId, action, createdAt",
+        history: "id, entity, entityId, changedAt, userId",
+      })
+      .upgrade(async (transaction) => {
+        await transaction.table("setlists").toCollection().modify((setlist) => {
+          const now = new Date().toISOString();
+          setlist.createdAt ??= setlist.updatedAt ?? now;
+          setlist.updatedAt ??= now;
+          setlist.syncStatus ??= "pending";
+        });
+      });
   }
 }
 export const worshipDb = typeof window === "undefined" ? null : new WorshipDb();
@@ -82,7 +112,15 @@ export function ensureDemoSongs() {
       .filter((_, index) => !existing[index])
       .map((song) => ({ ...song, createdAt: song.updatedAt ?? now }));
 
-    if (missing.length) await worshipDb.songs.bulkPut(missing);
+    const existingSetlists = await worshipDb.setlists.bulkGet(demoSetlists.map((setlist) => setlist.id));
+    const missingSetlists = demoSetlists
+      .filter((_, index) => !existingSetlists[index])
+      .map((setlist) => ({ ...setlist, createdAt: now, updatedAt: now, syncStatus: "synced" as const }));
+
+    await worshipDb.transaction("rw", worshipDb.songs, worshipDb.setlists, async () => {
+      if (missing.length) await worshipDb.songs.bulkPut(missing);
+      if (missingSetlists.length) await worshipDb.setlists.bulkPut(missingSetlists);
+    });
   })();
 
   return demoSeedPromise;
@@ -98,6 +136,18 @@ export async function getSongRecord(id: string) {
   if (!worshipDb) return undefined;
   const song = await worshipDb.songs.get(id);
   return song?.deletedAt ? undefined : song;
+}
+
+export async function listSetlists() {
+  if (!worshipDb) return [];
+  const setlists = await worshipDb.setlists.orderBy("date").reverse().toArray();
+  return setlists.filter((setlist) => !setlist.deletedAt);
+}
+
+export async function getSetlistRecord(id: string) {
+  if (!worshipDb) return undefined;
+  const setlist = await worshipDb.setlists.get(id);
+  return setlist?.deletedAt ? undefined : setlist;
 }
 
 export async function saveSong(input: SongInput, id?: string) {
@@ -120,6 +170,35 @@ export async function saveSong(input: SongInput, id?: string) {
   });
 
   return record;
+}
+
+export async function saveSetlist(input: SetlistInput, id?: string) {
+  if (!worshipDb) throw new Error("IndexedDB no está disponible.");
+  const now = new Date().toISOString();
+  const setlistId = id ?? createSetlistId(input.name);
+  const current = await worshipDb.setlists.get(setlistId);
+  const record: SetlistRecord = {
+    ...input,
+    id: setlistId,
+    createdAt: current?.createdAt ?? now,
+    updatedAt: now,
+    syncStatus: "pending",
+  };
+
+  await worshipDb.transaction("rw", worshipDb.setlists, worshipDb.pendingOperations, async () => {
+    await worshipDb.setlists.put(record);
+    await queueOperation("setlist", setlistId, "upsert");
+  });
+  return record;
+}
+
+export async function deleteSetlist(id: string) {
+  if (!worshipDb) return;
+  const now = new Date().toISOString();
+  await worshipDb.transaction("rw", worshipDb.setlists, worshipDb.pendingOperations, async () => {
+    await worshipDb.setlists.update(id, { deletedAt: now, updatedAt: now, syncStatus: "pending" });
+    await queueOperation("setlist", id, "delete");
+  });
 }
 
 export async function duplicateSong(id: string) {
@@ -165,14 +244,21 @@ async function queueOperation(entity: PendingOperation["entity"], entityId: stri
 }
 
 function createSongId(title: string) {
-  const slug = title
+  return `${slugify(title, "cancion")}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
+function createSetlistId(name: string) {
+  return `${slugify(name, "setlist")}-${crypto.randomUUID().slice(0, 8)}`;
+}
+
+function slugify(value: string, fallback: string) {
+  return value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-|-$/g, "")
-    .slice(0, 48) || "cancion";
-  return `${slug}-${crypto.randomUUID().slice(0, 8)}`;
+    .slice(0, 48) || fallback;
 }
 
 function replaceDirective(source: string, directive: string, value: string) {
@@ -189,4 +275,78 @@ export async function getDbSummary() {
     worshipDb.pendingOperations.count(),
   ]);
   return { songs, setlists, pending };
+}
+
+export async function getPendingOperations() {
+  if (!worshipDb) return [];
+  return worshipDb.pendingOperations.orderBy("createdAt").toArray();
+}
+
+export async function getEntityForSync(operation: PendingOperation) {
+  if (!worshipDb) return undefined;
+  return operation.entity === "song"
+    ? worshipDb.songs.get(operation.entityId)
+    : worshipDb.setlists.get(operation.entityId);
+}
+
+export async function completePendingOperation(operation: PendingOperation) {
+  if (!worshipDb) return;
+  const current = await worshipDb.pendingOperations.get(operation.id);
+  if (!current || current.createdAt !== operation.createdAt) return;
+
+  if (operation.entity === "song") {
+    await worshipDb.transaction("rw", worshipDb.songs, worshipDb.pendingOperations, async () => {
+      await worshipDb.songs.update(operation.entityId, { status: "synced" });
+      await worshipDb.pendingOperations.delete(operation.id);
+    });
+    return;
+  }
+
+  await worshipDb.transaction("rw", worshipDb.setlists, worshipDb.pendingOperations, async () => {
+    await worshipDb.setlists.update(operation.entityId, { syncStatus: "synced" });
+    await worshipDb.pendingOperations.delete(operation.id);
+  });
+}
+
+export async function applyRemoteSong(record: SongRecord) {
+  if (!worshipDb) return;
+  const pending = await worshipDb.pendingOperations.get(`song:${record.id}`);
+  if (pending) return;
+  await worshipDb.songs.put({ ...record, status: "synced" });
+}
+
+export async function applyRemoteSetlist(record: SetlistRecord) {
+  if (!worshipDb) return;
+  const pending = await worshipDb.pendingOperations.get(`setlist:${record.id}`);
+  if (pending) return;
+  await worshipDb.setlists.put({ ...record, syncStatus: "synced" });
+}
+
+export async function removeRemoteEntity(entity: PendingOperation["entity"], entityId: string) {
+  if (!worshipDb) return;
+  if (await worshipDb.pendingOperations.get(`${entity}:${entityId}`)) return;
+  if (entity === "song") await worshipDb.songs.delete(entityId);
+  else await worshipDb.setlists.delete(entityId);
+}
+
+export async function applyRemoteHistory(records: ChangeHistoryRecord[]) {
+  if (!worshipDb || !records.length) return;
+  await worshipDb.history.bulkPut(records);
+}
+
+export async function listRecentHistory(limit = 20) {
+  if (!worshipDb) return [];
+  return worshipDb.history.orderBy("changedAt").reverse().limit(limit).toArray();
+}
+
+export async function removePristineDemoData() {
+  if (!worshipDb) return;
+  const songIds = demoSongs.map((song) => song.id);
+  const setlistIds = demoSetlists.map((setlist) => setlist.id);
+  const pending = await worshipDb.pendingOperations.toArray();
+  const pendingKeys = new Set(pending.map((operation) => `${operation.entity}:${operation.entityId}`));
+  await worshipDb.transaction("rw", worshipDb.songs, worshipDb.setlists, async () => {
+    await worshipDb.songs.bulkDelete(songIds.filter((id) => !pendingKeys.has(`song:${id}`)));
+    await worshipDb.setlists.bulkDelete(setlistIds.filter((id) => !pendingKeys.has(`setlist:${id}`)));
+  });
 }

@@ -1,4 +1,6 @@
 import { getApp, getApps, initializeApp, type FirebaseOptions } from "firebase/app";
+import { getAuth, type Auth, type User } from "firebase/auth";
+import { getFirestore, type Firestore } from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -10,8 +12,17 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 } satisfies Record<string, string | undefined>;
 
-export const missingFirebaseEnvKeys = Object.entries(firebaseConfig)
-  .filter(([, value]) => !value)
+const requiredFirebaseConfig = {
+  apiKey: firebaseConfig.apiKey,
+  authDomain: firebaseConfig.authDomain,
+  projectId: firebaseConfig.projectId,
+  storageBucket: firebaseConfig.storageBucket,
+  messagingSenderId: firebaseConfig.messagingSenderId,
+  appId: firebaseConfig.appId,
+};
+
+export const missingFirebaseEnvKeys = Object.entries(requiredFirebaseConfig)
+  .filter(([, value]) => !value?.trim())
   .map(([key]) => key);
 
 export const isFirebaseConfigured = missingFirebaseEnvKeys.length === 0;
@@ -21,3 +32,19 @@ export const firebaseApp = isFirebaseConfigured
     ? getApp()
     : initializeApp(firebaseConfig as FirebaseOptions)
   : null;
+
+export const firebaseAuth = firebaseApp ? getAuth(firebaseApp) : null;
+export const firebaseDb = firebaseApp ? getFirestore(firebaseApp) : null;
+
+export type FirebaseServices = {
+  auth: Auth;
+  db: Firestore;
+  user: User;
+};
+
+export async function getFirebaseServices(): Promise<FirebaseServices> {
+  if (!firebaseAuth || !firebaseDb) throw new Error("Firebase no está configurado.");
+  const user = firebaseAuth.currentUser;
+  if (!user) throw new Error("Debes iniciar sesión para sincronizar.");
+  return { auth: firebaseAuth, db: firebaseDb, user };
+}

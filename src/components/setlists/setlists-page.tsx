@@ -1,18 +1,24 @@
+"use client";
+
+import { useLiveQuery } from "dexie-react-hooks";
 import Link from "next/link";
 import { ArrowRight, CalendarDays, CheckCircle2, Clock3, ListMusic, MapPin, Plus, Sparkles } from "lucide-react";
 import { Badge, Card, PageHeader } from "@/components/ui/primitives";
-import { demoSetlists, getSong } from "@/data/demo";
 import { dayjs } from "@/lib/dayjs";
+import { listSetlists, listSongs } from "@/lib/indexed-db";
 
 export function SetlistsPage() {
+  const setlists = useLiveQuery(() => listSetlists(), [], []);
+  const songs = useLiveQuery(() => listSongs(), [], []);
+  const songMap = new Map(songs.map((song) => [song.id, song]));
   return (
     <div className="space-y-7 sm:space-y-8">
       <PageHeader eyebrow="Planificación" title="Setlists" description="Prepara el orden, tono y notas de cada canción antes de subir al escenario." action={<Link href="/setlists/new" className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-hover sm:w-auto"><Plus className="size-4" /> Nuevo setlist</Link>} />
 
       <section className="grid gap-5 xl:grid-cols-2">
-        {demoSetlists.map((setlist, index) => {
+        {setlists.map((setlist, index) => {
           const totalMinutes = setlist.items.reduce((total, item) => {
-            const [minutes, seconds] = getSong(item.songId).duration.split(":").map(Number);
+            const [minutes, seconds] = (songMap.get(item.songId)?.duration ?? "0:00").split(":").map(Number);
             return total + minutes + seconds / 60;
           }, 0);
           return (
