@@ -19,7 +19,7 @@ export async function POST(request: Request) {
       redirect: "follow",
       headers: {
         Accept: "text/html,application/xhtml+xml",
-        "User-Agent": "AcordeSongImporter/1.0",
+        "User-Agent": "WorshipNotesSongImporter/1.0",
       },
       signal: AbortSignal.timeout(8_000),
     });

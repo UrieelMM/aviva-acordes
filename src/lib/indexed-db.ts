@@ -322,6 +322,27 @@ export async function applyRemoteSetlist(record: SetlistRecord) {
   await worshipDb.setlists.put({ ...record, syncStatus: "synced" });
 }
 
+export async function applyRemoteLibrary(songs: SongRecord[], setlists: SetlistRecord[]) {
+  const db = worshipDb;
+  if (!db) throw new Error("IndexedDB no está disponible.");
+  await db.transaction("rw", db.songs, db.setlists, db.pendingOperations, async () => {
+    const [localSongs, localSetlists, pending] = await Promise.all([
+      db.songs.toArray(), db.setlists.toArray(), db.pendingOperations.toArray(),
+    ]);
+    const protectedKeys = new Set(pending.map((operation) => `${operation.entity}:${operation.entityId}`));
+    const protectedSongs = new Set(localSongs.filter((song) => song.status === "pending" || protectedKeys.has(`song:${song.id}`)).map((song) => song.id));
+    const protectedSetlists = new Set(localSetlists.filter((setlist) => setlist.syncStatus === "pending" || protectedKeys.has(`setlist:${setlist.id}`)).map((setlist) => setlist.id));
+    const remoteSongIds = new Set(songs.map((song) => song.id));
+    const remoteSetlistIds = new Set(setlists.map((setlist) => setlist.id));
+
+    await db.songs.bulkPut(songs.filter((song) => !protectedSongs.has(song.id)));
+    await db.setlists.bulkPut(setlists.filter((setlist) => !protectedSetlists.has(setlist.id)));
+    await db.songs.bulkDelete(localSongs.filter((song) => !remoteSongIds.has(song.id) && !protectedSongs.has(song.id)).map((song) => song.id));
+    await db.setlists.bulkDelete(localSetlists.filter((setlist) => !remoteSetlistIds.has(setlist.id) && !protectedSetlists.has(setlist.id)).map((setlist) => setlist.id));
+  });
+  return getDbSummary();
+}
+
 export async function removeRemoteEntity(entity: PendingOperation["entity"], entityId: string) {
   if (!worshipDb) return;
   if (await worshipDb.pendingOperations.get(`${entity}:${entityId}`)) return;

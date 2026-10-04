@@ -23,13 +23,13 @@ import {
   Settings,
   ShieldCheck,
   UserRound,
-  Wifi,
 } from "lucide-react";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useFirebaseAuth } from "@/components/providers/firebase-auth-provider";
 import { InstallAlert } from "@/components/pwa/install-alert";
+import { ManualSyncButton } from "@/components/sync/manual-sync-button";
 import { useFirebaseSyncStatus } from "@/components/providers/firebase-sync-provider";
 import { cx } from "@/components/ui/primitives";
 import { listSetlists, listSongs, type SetlistRecord, type SongRecord } from "@/lib/indexed-db";
@@ -156,6 +156,7 @@ export function AppShell({ children, pathnameOverride }: { children: ReactNode; 
             </Link>
           ))}
         </nav>
+        <div className="border-t border-app-border p-4"><p className="mb-2 text-xs text-app-secondary">Descarga los últimos cambios del equipo para usarlos sin internet.</p><ManualSyncButton variant="drawer" /></div>
       </aside>
 
       <div className={cx("transition-[padding] duration-200", collapsed ? "lg:pl-[5.25rem]" : "lg:pl-64")}>
@@ -195,7 +196,7 @@ export function AppShell({ children, pathnameOverride }: { children: ReactNode; 
                 ))}
               </select>
             </label>
-            <div className="hidden items-center gap-2 rounded-full border border-app-border bg-app-surface px-3 py-2 text-xs font-bold text-app-secondary sm:flex">{sync.phase === "offline" ? <CloudOff className="size-3.5 text-app-warning" /> : sync.phase === "error" ? <CloudOff className="size-3.5 text-app-danger" /> : sync.phase === "connecting" || sync.phase === "syncing" ? <LoaderCircle className="size-3.5 animate-spin text-brand" /> : sync.phase === "synced" ? <CloudCheck className="size-3.5 text-app-success" /> : <Wifi className="size-3.5 text-app-secondary" />}{sync.phase === "disabled" ? "Solo local" : sync.phase === "signed-out" ? "Sesión requerida" : sync.phase === "offline" ? "Sin conexión" : sync.phase === "error" ? "Error de nube" : sync.phase === "synced" ? "Sincronizado" : "Sincronizando"}</div>
+            <ManualSyncButton />
             <div className="relative">
               <button
                 className="flex h-10 items-center gap-2 rounded-full border border-brand/15 bg-brand-soft p-1 pr-1 text-brand-ink transition hover:border-brand/35 sm:pr-2.5"
@@ -362,7 +363,7 @@ function Brand({ compact = false }: { compact?: boolean }) {
         <Music2 className="size-5" />
         <span className="absolute bottom-0 left-0 h-1 w-full bg-white/25" />
       </span>
-      {!compact ? <span><strong className="block font-display text-lg leading-none tracking-tight">Acorde</strong><span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-app-secondary">Worship workspace</span></span> : null}
+      {!compact ? <span><strong className="block font-display text-lg leading-none tracking-tight">WorshipNotes</strong><span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-app-secondary">Worship workspace</span></span> : null}
     </Link>
   );
 }

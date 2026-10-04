@@ -4,17 +4,17 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: {
-    default: "Acorde · Alabanza App",
-    template: "%s · Acorde",
+    default: "WorshipNotes",
+    template: "%s · WorshipNotes",
   },
   description: "Canciones, arreglos y setlists para equipos de alabanza.",
   manifest: "/manifest.webmanifest",
   icons: { apple: "/apple-touch-icon.png" },
-  applicationName: "Alabanza App",
+  applicationName: "WorshipNotes",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Acorde",
+    title: "WorshipNotes",
   },
   formatDetection: {
     telephone: false,

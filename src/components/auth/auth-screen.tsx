@@ -83,7 +83,7 @@ export function AuthScreen() {
         completeAccess("Cuenta creada", "Ya puedes trabajar con la biblioteca compartida.");
       } else {
         await auth.signIn(email, password);
-        completeAccess("Sesión iniciada", "Bienvenido de nuevo a Acorde.");
+        completeAccess("Sesión iniciada", "Bienvenido de nuevo a WorshipNotes.");
       }
     } catch (error) {
       toast.error(mode === "register" ? "No se pudo crear la cuenta" : "No se pudo iniciar sesión", {
@@ -131,7 +131,7 @@ export function AuthScreen() {
     <main className="auth-screen relative min-h-dvh overflow-hidden bg-slate-950 text-white">
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_15%,rgba(99,102,241,0.28),transparent_30rem),radial-gradient(circle_at_85%_90%,rgba(14,165,233,0.15),transparent_28rem)]" />
       <div className="relative mx-auto grid min-h-dvh max-w-[1600px] lg:grid-cols-[1.05fr_0.95fr]">
-        <section className="relative hidden overflow-hidden border-r border-white/10 p-10 lg:flex lg:flex-col xl:p-14" aria-label="Presentación de Acorde">
+        <section className="relative hidden overflow-hidden border-r border-white/10 p-10 lg:flex lg:flex-col xl:p-14" aria-label="Presentación de WorshipNotes">
           <AuthBrand />
           <div className="my-auto max-w-2xl py-16">
             <span className="inline-flex items-center gap-2 rounded-full border border-indigo-300/20 bg-indigo-300/10 px-3 py-1.5 text-xs font-bold text-indigo-100">
@@ -213,7 +213,7 @@ export function AuthScreen() {
                 ) : null}
 
                 <button type="submit" disabled={!auth.configured || working !== null} className="group flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-brand px-5 text-sm font-bold text-white shadow-lg shadow-[var(--app-glow)] transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-55">
-                  {working === "form" ? <LoaderCircle className="size-5 animate-spin" /> : <>{mode === "login" ? "Entrar a Acorde" : "Crear mi cuenta"}<ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" /></>}
+                  {working === "form" ? <LoaderCircle className="size-5 animate-spin" /> : <>{mode === "login" ? "Entrar a WorshipNotes" : "Crear mi cuenta"}<ArrowRight className="size-4 transition-transform group-hover:translate-x-0.5" /></>}
                 </button>
               </form>
             </div>
@@ -230,7 +230,7 @@ export function AuthScreen() {
 const inputClass = "min-h-12 w-full rounded-xl border border-app-border bg-app-surface-muted pl-10 pr-3 text-sm font-medium text-app-text outline-none transition placeholder:text-app-secondary/70 focus:border-brand focus:bg-app-surface disabled:opacity-60";
 
 function AuthBrand({ compact = false }: { compact?: boolean }) {
-  return <div className="flex items-center gap-3"><span className={cx("flex items-center justify-center rounded-2xl bg-indigo-500 text-white shadow-xl shadow-indigo-950/30", compact ? "size-11" : "size-12")}><Music2 className="size-6" /></span><span><strong className={cx("block font-display font-bold leading-none", compact ? "text-xl text-app-text" : "text-2xl")}>Acorde</strong><span className={cx("mt-1 block text-[10px] font-bold uppercase tracking-[0.19em]", compact ? "text-app-secondary" : "text-slate-400")}>Worship workspace</span></span></div>;
+  return <div className="flex items-center gap-3"><span className={cx("flex items-center justify-center rounded-2xl bg-indigo-500 text-white shadow-xl shadow-indigo-950/30", compact ? "size-11" : "size-12")}><Music2 className="size-6" /></span><span><strong className={cx("block font-display font-bold leading-none", compact ? "text-xl text-app-text" : "text-2xl")}>WorshipNotes</strong><span className={cx("mt-1 block text-[10px] font-bold uppercase tracking-[0.19em]", compact ? "text-app-secondary" : "text-slate-400")}>Worship workspace</span></span></div>;
 }
 
 function Feature({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {

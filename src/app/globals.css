@@ -283,6 +283,57 @@ a {
 .install-alert { bottom: calc(5rem + env(safe-area-inset-bottom)); }
 @media (min-width: 64rem) { .install-alert { bottom: 1.25rem; } }
 
+.pwa-splash { display: none; }
+@media (display-mode: standalone) { .pwa-splash { display: flex; } }
+[data-pwa-standalone="true"] .pwa-splash { display: flex; }
+.pwa-splash {
+  position: fixed;
+  z-index: 200;
+  inset: 0;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 34%, rgba(99, 102, 241, 0.2), transparent 18rem),
+    linear-gradient(145deg, #080d1f, #0d1430 55%, #090f23);
+  color: #fff;
+  text-align: center;
+  isolation: isolate;
+  transition: opacity 0.48s ease, transform 0.48s ease;
+}
+.pwa-splash::before {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background-image: linear-gradient(rgba(199, 210, 254, 0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(199, 210, 254, 0.045) 1px, transparent 1px);
+  background-size: 38px 38px;
+  content: "";
+  mask-image: radial-gradient(circle at center, #000, transparent 75%);
+}
+.pwa-splash--leaving { opacity: 0; transform: scale(1.035); pointer-events: none; }
+.pwa-splash__glow { position: absolute; width: min(85vw, 28rem); aspect-ratio: 1; border-radius: 50%; filter: blur(80px); opacity: 0.5; animation: pwa-glow 4s ease-in-out infinite alternate; }
+.pwa-splash__glow--left { top: -14rem; left: -12rem; background: rgba(79, 70, 229, 0.42); }
+.pwa-splash__glow--right { right: -14rem; bottom: -16rem; background: rgba(14, 165, 233, 0.26); animation-delay: -2s; }
+.pwa-splash__content { display: flex; width: min(100%, 32rem); flex-direction: column; align-items: center; padding: 2rem; animation: pwa-enter 0.9s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.pwa-splash__orbit { position: relative; display: grid; width: 11rem; height: 11rem; place-items: center; margin-bottom: 2.2rem; }
+.pwa-splash__orbit::before, .pwa-splash__orbit::after { position: absolute; inset: 0; border-radius: 50%; content: ""; }
+.pwa-splash__orbit::before { border: 1px solid rgba(165, 180, 252, 0.3); box-shadow: 0 0 45px rgba(79, 70, 229, 0.18), inset 0 0 45px rgba(79, 70, 229, 0.12); }
+.pwa-splash__orbit::after { inset: 0.8rem; border: 1px dashed rgba(165, 180, 252, 0.42); animation: pwa-orbit 15s linear infinite; }
+.pwa-splash__mark { position: relative; z-index: 1; display: grid; width: 7.3rem; height: 7.3rem; place-items: center; border: 1px solid rgba(224, 231, 255, 0.58); border-radius: 2rem; background: linear-gradient(145deg, rgba(129, 140, 248, 0.93), rgba(79, 70, 229, 0.8) 55%, rgba(14, 165, 233, 0.64)); box-shadow: inset 0 1px rgba(255, 255, 255, 0.45), 0 22px 65px rgba(79, 70, 229, 0.34); backdrop-filter: blur(18px); transform: rotate(-8deg); animation: pwa-mark 3.5s ease-in-out infinite; }
+.pwa-splash__mark svg { width: 3.4rem; height: 3.4rem; filter: drop-shadow(0 3px 12px rgba(15, 23, 42, 0.28)); transform: rotate(8deg); }
+.pwa-splash__eyebrow { margin-bottom: 0.7rem; color: #a5b4fc; font-size: 0.65rem; font-weight: 900; letter-spacing: 0.28em; }
+.pwa-splash__name { font-size: clamp(2.25rem, 10vw, 3.5rem); font-weight: 800; letter-spacing: -0.07em; line-height: 1.06; text-shadow: 0 10px 35px rgba(79, 70, 229, 0.25); }
+.pwa-splash__name span { color: #a5b4fc; }
+.pwa-splash__tagline { margin-top: 0.8rem; color: #cbd5e1; font-size: 0.95rem; }
+.pwa-splash__progress { width: 10rem; height: 3px; margin-top: 3.4rem; overflow: hidden; border-radius: 999px; background: rgba(199, 210, 254, 0.18); }
+.pwa-splash__progress span { display: block; width: 45%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #818cf8, #67e8f9); box-shadow: 0 0 14px rgba(129, 140, 248, 0.8); animation: pwa-progress 1.2s ease-in-out infinite; }
+.pwa-splash__footer { position: absolute; right: 1rem; bottom: max(1.5rem, env(safe-area-inset-bottom)); left: 1rem; color: #64748b; font-size: 0.58rem; font-weight: 800; letter-spacing: 0.18em; }
+@keyframes pwa-enter { from { opacity: 0; transform: translateY(18px) scale(0.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes pwa-orbit { to { transform: rotate(360deg); } }
+@keyframes pwa-mark { 50% { transform: translateY(-6px) rotate(-5deg); } }
+@keyframes pwa-progress { from { transform: translateX(-110%); } to { transform: translateX(260%); } }
+@keyframes pwa-glow { to { transform: translate(1.5rem, 1rem) scale(1.12); } }
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

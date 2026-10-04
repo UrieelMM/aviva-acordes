@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDocsFromServer,
   limit,
   onSnapshot,
   orderBy,
@@ -12,6 +13,7 @@ import {
 } from "firebase/firestore";
 import {
   applyRemoteHistory,
+  applyRemoteLibrary,
   applyRemoteSetlist,
   applyRemoteSong,
   completePendingOperation,
@@ -30,6 +32,7 @@ import { getFirebaseServices, isFirebaseConfigured } from "@/lib/firebase/client
 export type CloudSyncState = {
   phase: "disabled" | "signed-out" | "connecting" | "syncing" | "synced" | "offline" | "error";
   pending: number;
+  refreshing: boolean;
   userId?: string;
   lastSyncedAt?: string;
   error?: string;
@@ -38,10 +41,12 @@ export type CloudSyncState = {
 let state: CloudSyncState = {
   phase: isFirebaseConfigured ? "connecting" : "disabled",
   pending: 0,
+  refreshing: false,
 };
 const subscribers = new Set<() => void>();
 let stopEngine: (() => void) | null = null;
 let startingPromise: Promise<void> | null = null;
+let refreshPromise: Promise<{ songs: number; setlists: number; pending: number }> | null = null;
 let engineGeneration = 0;
 
 export function getCloudSyncSnapshot() {
@@ -78,8 +83,46 @@ export function stopFirebaseSync() {
     phase: isFirebaseConfigured ? "signed-out" : "disabled",
     userId: undefined,
     lastSyncedAt: undefined,
+    refreshing: false,
     error: undefined,
   });
+}
+
+export function refreshFirebaseSync() {
+  if (refreshPromise) return refreshPromise;
+  const currentPromise = pullLatestLibrary().finally(() => {
+    if (refreshPromise === currentPromise) refreshPromise = null;
+  });
+  refreshPromise = currentPromise;
+  return currentPromise;
+}
+
+async function pullLatestLibrary() {
+  if (!isFirebaseConfigured) throw new Error("Firebase no está configurado.");
+  if (!navigator.onLine) {
+    updateState({ phase: "offline" });
+    throw new Error("Conéctate a internet para actualizar la biblioteca.");
+  }
+  await startFirebaseSync();
+  const generation = engineGeneration;
+  const { db, user } = await getFirebaseServices();
+  updateState({ phase: "syncing", refreshing: true, error: undefined });
+  try {
+    const [remoteSongs, remoteSetlists] = await Promise.all([
+      getDocsFromServer(collection(db, "songs")),
+      getDocsFromServer(collection(db, "setlists")),
+    ]);
+    if (generation !== engineGeneration || !user || state.userId !== user.uid) throw new Error("La sesión cambió durante la sincronización.");
+    const summary = await applyRemoteLibrary(
+      remoteSongs.docs.map((entry) => normalizeSong(entry.id, entry.data())),
+      remoteSetlists.docs.map((entry) => normalizeSetlist(entry.id, entry.data())),
+    );
+    updateState({ phase: summary.pending ? "syncing" : "synced", pending: summary.pending, refreshing: false, lastSyncedAt: new Date().toISOString(), error: undefined });
+    return summary;
+  } catch (error) {
+    if (generation === engineGeneration) updateState({ phase: navigator.onLine ? "error" : "offline", refreshing: false, error: getErrorMessage(error) });
+    throw error;
+  }
 }
 
 async function initializeFirebaseSync(generation: number) {

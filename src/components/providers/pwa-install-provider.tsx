@@ -75,7 +75,7 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
       await event.prompt();
       const choice = await event.userChoice;
       setEvent(null);
-      if (choice.outcome === "accepted") setInstructions("La instalación está en curso. Abre Acorde desde la pantalla de inicio.");
+      if (choice.outcome === "accepted") setInstructions("La instalación está en curso. Abre WorshipNotes desde la pantalla de inicio.");
       return;
     }
     const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);

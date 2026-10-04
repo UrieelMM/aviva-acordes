@@ -7,6 +7,7 @@ import { Toaster } from "sonner";
 import { DatabaseBootstrap } from "@/components/providers/database-bootstrap";
 import { FirebaseAuthProvider } from "@/components/providers/firebase-auth-provider";
 import { PwaInstallProvider } from "@/components/providers/pwa-install-provider";
+import { PwaSplash } from "@/components/pwa/pwa-splash";
 import { OfflineNavigation } from "@/components/providers/offline-navigation";
 import { FirebaseSyncProvider } from "@/components/providers/firebase-sync-provider";
 import { ServiceWorkerCleanup } from "@/components/providers/service-worker-cleanup";
@@ -29,12 +30,13 @@ export function AppProviders({ children }: { children: React.ReactNode }) {
     <QueryClientProvider client={queryClient}>
       <FirebaseAuthProvider>
         <PwaInstallProvider>
-        <ThemeSync />
-        <DatabaseBootstrap />
-        <FirebaseSyncProvider />
-        <OfflineNavigation />
-        {process.env.NODE_ENV === "development" ? <ServiceWorkerCleanup /> : null}
-        {children}
+          <PwaSplash />
+          <ThemeSync />
+          <DatabaseBootstrap />
+          <FirebaseSyncProvider />
+          <OfflineNavigation />
+          {process.env.NODE_ENV === "development" ? <ServiceWorkerCleanup /> : null}
+          {children}
         </PwaInstallProvider>
       </FirebaseAuthProvider>
       <Toaster

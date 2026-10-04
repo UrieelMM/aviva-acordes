@@ -132,7 +132,7 @@ export async function createSongPdfBlob(input: SongPdfInput) {
     document.setFont("helvetica", "normal");
     document.setFontSize(8);
     document.setTextColor(100, 116, 139);
-    document.text("Acorde · Canción exportada", margin, pageHeight - 18);
+    document.text("WorshipNotes · Canción exportada", margin, pageHeight - 18);
     document.text(`${page} / ${pages}`, pageWidth - margin, pageHeight - 18, { align: "right" });
   }
 

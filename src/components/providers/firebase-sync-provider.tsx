@@ -11,7 +11,7 @@ import {
   subscribeCloudSync,
 } from "@/lib/firebase/sync";
 
-const serverSnapshot = { phase: isFirebaseConfigured ? "connecting" : "disabled", pending: 0 } as const;
+const serverSnapshot = { phase: isFirebaseConfigured ? "connecting" : "disabled", pending: 0, refreshing: false } as const;
 
 export function FirebaseSyncProvider() {
   const { loading, user } = useFirebaseAuth();

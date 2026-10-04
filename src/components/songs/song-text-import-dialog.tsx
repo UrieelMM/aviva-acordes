@@ -141,7 +141,7 @@ export function SongTextImportDialog({
 
               <label className={cx("mt-4 flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition", hasRights ? "border-emerald-300 bg-emerald-50" : "border-app-border bg-app-surface")}><input type="checkbox" checked={hasRights} onChange={(event) => setHasRights(event.target.checked)} className="mt-0.5 size-4 accent-emerald-600" /><span className="text-[11px] leading-5 text-app-secondary"><strong className="block text-app-text">Tengo permiso para usar este contenido</strong>Confirmo que es propio, autorizado, de dominio público o que mi organización cuenta con la licencia necesaria.</span></label>
 
-              <div className="mt-4 rounded-xl bg-brand-soft p-3 text-[11px] leading-5 text-brand-ink"><ShieldCheck className="mr-1 inline size-4 align-text-bottom" /> Acorde extrae la cifra únicamente para convertirla en el editor. Revisa el resultado antes de importarlo.</div>
+              <div className="mt-4 rounded-xl bg-brand-soft p-3 text-[11px] leading-5 text-brand-ink"><ShieldCheck className="mr-1 inline size-4 align-text-bottom" /> WorshipNotes extrae la cifra únicamente para convertirla en el editor. Revisa el resultado antes de importarlo.</div>
               <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end"><Button variant="secondary" onClick={onClose}>Cancelar</Button><Button onClick={() => void applyImport()} disabled={!rawText.trim() || !hasRights}><WandSparkles className="size-4" /> Importar al editor</Button></div>
             </div>
           </aside>
