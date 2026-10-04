@@ -36,7 +36,7 @@ También puedes copiar el contenido de `firestore.rules` en **Firestore → Rule
 
 7. En **Authentication → Settings → Authorized domains**, agrega el dominio donde publicarás WorshipNotes. Firebase ya admite `localhost` para desarrollo en proyectos compatibles; si no aparece, agrégalo también.
 
-   Para el acceso con Google en producción, agrega también `https://TU_DOMINIO/__/auth/handler` a las **URI de redirección autorizadas** del cliente OAuth de Google del mismo proyecto. WorshipNotes sirve el asistente de Firebase desde su propio dominio mediante un proxy interno; así el navegador no necesita compartir `sessionStorage` entre dominios. Si cambias de dominio, actualiza esta URI antes de desplegar. En desarrollo se conserva el `authDomain` de Firebase.
+   Para el acceso con Google, conserva `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` tal como aparece en la configuración Web de Firebase (normalmente `TU_PROYECTO.firebaseapp.com`). La aplicación usa una ventana emergente y ese dominio aloja el retorno OAuth registrado por Firebase. No pongas aquí el dominio de despliegue; agrégalo únicamente a **Authorized domains**.
 
 8. Reinicia el servidor después de modificar `.env.local`:
 
