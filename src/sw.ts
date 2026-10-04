@@ -1,7 +1,7 @@
 /// <reference lib="webworker" />
 
 import { NetworkFirst } from "serwist";
-import { matchPrecache, precacheAndRoute, registerRoute, setCatchHandler } from "serwist/legacy";
+import { precacheAndRoute, registerRoute, setCatchHandler } from "serwist/legacy";
 
 declare const self: ServiceWorkerGlobalScope & {
   __SW_MANIFEST: Array<string | { url: string; revision?: string | null }>;
@@ -29,12 +29,12 @@ registerRoute(
 );
 
 setCatchHandler(async ({ request }) => {
-  if (request.destination === "document") {
+  if (request.mode === "navigate") {
     const url = new URL(request.url);
-    if (url.origin === self.location.origin && url.pathname !== "/offline-app") {
-      return Response.redirect(`/offline-app?path=${encodeURIComponent(url.pathname + url.search)}`, 302);
+    if (url.origin === self.location.origin) {
+      const cache = await caches.open(OFFLINE_CACHE);
+      return (await cache.match("/offline-app")) ?? (await cache.match("/offline")) ?? Response.error();
     }
-    return (await caches.match("/offline-app")) ?? (await matchPrecache("/offline")) ?? Response.error();
   }
 
   return Response.error();

@@ -97,6 +97,7 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
       {children}
       {guide ? <Modal title={guide.title} icon={<Smartphone className="size-5" />} onClose={() => setGuide(null)} footer={<Button onClick={() => setGuide(null)}>Entendido</Button>}>
         <ol className="space-y-3">{guide.steps.map((step, index) => <li key={step} className="flex items-start gap-3 text-sm leading-6"><span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-extrabold text-brand-ink">{index + 1}</span><span>{step}</span></li>)}</ol>
+        <p className="mt-4 text-xs leading-5 text-app-secondary">Antes de usarla sin internet, abre WorshipNotes desde el icono con conexión, inicia sesión y pulsa «Actualizar» para guardar la biblioteca en este dispositivo.</p>
         {guide.note ? <p className="mt-4 text-xs leading-5 text-app-secondary">{guide.note}</p> : null}
       </Modal> : null}
     </InstallContext.Provider>
