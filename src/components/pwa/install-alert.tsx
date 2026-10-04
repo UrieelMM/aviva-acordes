@@ -13,8 +13,7 @@ export function InstallAlert() {
         <div className="min-w-0 flex-1"><strong className="block text-sm">Lleva WorshipNotes contigo</strong><p className="mt-1 text-xs leading-5 text-app-secondary">Instala la app para abrir tus canciones y setlists guardados sin internet.</p></div>
         <button type="button" onClick={install.dismiss} className="flex size-8 shrink-0 items-center justify-center rounded-lg text-app-secondary" aria-label="Cerrar aviso de instalación"><X className="size-4" /></button>
       </div>
-      <button type="button" onClick={() => void install.install()} className="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-white"><Download className="size-4" /> Instalar aplicación</button>
-      {install.instructions ? <p className="mt-2 text-xs text-app-secondary">{install.instructions}</p> : null}
+      <button type="button" onClick={() => void install.install()} className="mt-3 flex min-h-10 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-bold text-white"><Download className="size-4" /> {install.available ? "Instalar aplicación" : "Ver cómo instalar"}</button>
     </aside>
   );
 }

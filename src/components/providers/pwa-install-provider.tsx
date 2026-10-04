@@ -1,6 +1,9 @@
 "use client";
 
 import { createContext, useContext, useEffect, useState, useSyncExternalStore } from "react";
+import { Smartphone } from "lucide-react";
+import { Button, Modal } from "@/components/ui/primitives";
+import { getInstallGuide, type InstallGuide } from "@/lib/pwa-install-guide";
 
 type InstallEvent = Event & {
   prompt: () => Promise<void>;
@@ -11,7 +14,6 @@ type InstallState = {
   installed: boolean;
   dismissed: boolean;
   available: boolean;
-  instructions: string;
   install: () => Promise<void>;
   dismiss: () => void;
 };
@@ -46,7 +48,7 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
   const [event, setEvent] = useState<InstallEvent | null>(null);
   const installed = useSyncExternalStore(subscribe, getInstalled, () => false);
   const dismissed = useSyncExternalStore(subscribe, getDismissed, () => true);
-  const [instructions, setInstructions] = useState("");
+  const [guide, setGuide] = useState<InstallGuide | null>(null);
 
   useEffect(() => {
     const beforeInstall = (nextEvent: Event) => {
@@ -60,7 +62,7 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
       temporaryInstalled = true;
       writeFlag(INSTALLED_KEY);
       setEvent(null);
-      setInstructions("");
+      setGuide(null);
     };
     window.addEventListener("beforeinstallprompt", beforeInstall);
     window.addEventListener("appinstalled", onInstalled);
@@ -73,15 +75,11 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
   const install = async () => {
     if (event) {
       await event.prompt();
-      const choice = await event.userChoice;
+      await event.userChoice;
       setEvent(null);
-      if (choice.outcome === "accepted") setInstructions("La instalación está en curso. Abre WorshipNotes desde la pantalla de inicio.");
       return;
     }
-    const ios = /iPad|iPhone|iPod/.test(navigator.userAgent);
-    setInstructions(ios
-      ? "En Safari toca Compartir y luego «Agregar a pantalla de inicio»."
-      : "Abre el menú del navegador y selecciona «Instalar aplicación» o «Agregar a pantalla de inicio».");
+    setGuide(getInstallGuide(navigator.userAgent, navigator.maxTouchPoints));
   };
 
   const dismiss = () => {
@@ -89,7 +87,15 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
     writeFlag(STORAGE_KEY);
   };
 
-  return <InstallContext.Provider value={{ installed, dismissed, available: Boolean(event), instructions, install, dismiss }}>{children}</InstallContext.Provider>;
+  return (
+    <InstallContext.Provider value={{ installed, dismissed, available: Boolean(event), install, dismiss }}>
+      {children}
+      {guide ? <Modal title={guide.title} icon={<Smartphone className="size-5" />} onClose={() => setGuide(null)} footer={<Button onClick={() => setGuide(null)}>Entendido</Button>}>
+        <ol className="space-y-3">{guide.steps.map((step, index) => <li key={step} className="flex items-start gap-3 text-sm leading-6"><span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-soft text-xs font-extrabold text-brand-ink">{index + 1}</span><span>{step}</span></li>)}</ol>
+        {guide.note ? <p className="mt-4 text-xs leading-5 text-app-secondary">{guide.note}</p> : null}
+      </Modal> : null}
+    </InstallContext.Provider>
+  );
 }
 
 export function usePwaInstall() {
