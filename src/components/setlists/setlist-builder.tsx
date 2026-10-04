@@ -2,10 +2,12 @@
 
 import { useLiveQuery } from "dexie-react-hooks";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { CalendarDays, ChevronDown, ChevronUp, Clock3, LoaderCircle, MapPin, Minus, Music2, Plus, Save, Search, Sparkles, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button, Card, PageHeader } from "@/components/ui/primitives";
+import { isOfflineShell } from "@/components/providers/offline-navigation";
 import { getSetlistRecord, listSongs, saveSetlist, type SetlistRecord } from "@/lib/indexed-db";
 import { formatSignedSemitones, formatTransposeInterval, transposeKey } from "@/lib/music";
 import type { SetlistItem } from "@/types/domain";
@@ -19,6 +21,7 @@ export function SetlistBuilder({ setlistId }: { setlistId?: string }) {
 }
 
 function SetlistForm({ existing, songs }: { existing?: SetlistRecord; songs: Awaited<ReturnType<typeof listSongs>> }) {
+  const router = useRouter();
   const [name, setName] = useState(existing?.name ?? "Nuevo setlist");
   const [date, setDate] = useState(existing?.date ?? new Date().toISOString().slice(0, 10));
   const [time, setTime] = useState(existing?.time ?? "11:00");
@@ -56,7 +59,8 @@ function SetlistForm({ existing, songs }: { existing?: SetlistRecord; songs: Awa
       toast.success(existing ? "Setlist actualizado" : "Setlist creado", { description: "Se guardó offline y se sincronizará con todo el equipo." });
       if (!existing) {
         const href = `/setlists/${saved.id}`;
-        window.location.replace(href);
+        if (!navigator.onLine || isOfflineShell()) window.location.replace(href);
+        else router.replace(href);
       }
     } catch {
       toast.error("No se pudo guardar el setlist");

@@ -9,6 +9,7 @@ export function isOfflineShell() {
 export function OfflineNavigation() {
   useEffect(() => {
     const followLink = (event: MouseEvent) => {
+      if (navigator.onLine && !isOfflineShell()) return;
       if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
       const anchor = (event.target as Element).closest("a[href]") as HTMLAnchorElement | null;
       if (!anchor || anchor.target || anchor.hasAttribute("download")) return;

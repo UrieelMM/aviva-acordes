@@ -9,8 +9,8 @@ import { toast } from "sonner";
 import { sanitizeChordSheetHtml } from "@/lib/chordpro";
 import { getSetlistRecord, listSongs, type SetlistRecord, type SongRecord } from "@/lib/indexed-db";
 import { formatTransposeInterval, transformChordPro, transposeKey } from "@/lib/music";
-import { getSingerSections } from "@/lib/stage-lyrics";
-import type { InstrumentView, Notation, SongSection } from "@/types/domain";
+import { getSingerSections, getStageJumpSections, type StageJumpSection } from "@/lib/stage-lyrics";
+import type { InstrumentView, Notation } from "@/types/domain";
 import { cx } from "@/components/ui/primitives";
 
 const stageInstruments: Array<{ id: InstrumentView; label: string; icon: typeof Guitar }> = [
@@ -40,8 +40,10 @@ function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongR
   const [controlsOpen, setControlsOpen] = useState(true);
   const [singer, setSinger] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [activeSection, setActiveSection] = useState<number | null>(null);
   const stageRef = useRef<HTMLElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const highlightedRef = useRef<HTMLElement[]>([]);
   const item = setlist.items[Math.min(songIndex, setlist.items.length - 1)];
   const song = songs.find((entry) => entry.id === item.songId)!;
   const shift = instrument === "guitar" ? item.transposeSemitones - item.capo : item.transposeSemitones;
@@ -49,6 +51,7 @@ function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongR
   const html = sanitizeChordSheetHtml(new HtmlDivFormatter().format(new ChordProParser().parse(source)));
   const targetKey = transposeKey(song.originalKey, item.transposeSemitones, song.originalKey.includes("b"));
   const singerSections = getSingerSections(song.chordProSource);
+  const jumpSections = getStageJumpSections(song.chordProSource, song.sections);
 
   useEffect(() => {
     const onFullscreenChange = () => setFullscreen(Boolean(document.fullscreenElement));
@@ -67,8 +70,15 @@ function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongR
     return () => window.clearInterval(timer);
   }, [running, speed]);
 
+  const clearSectionHighlight = () => {
+    highlightedRef.current.forEach((element) => element.classList.remove("stage-section-highlight"));
+    highlightedRef.current = [];
+    setActiveSection(null);
+  };
+
   const selectSong = (index: number) => {
     if (index < 0 || index >= setlist.items.length) return;
+    clearSectionHighlight();
     setSongIndex(index);
     setRunning(false);
     if (scrollRef.current) scrollRef.current.scrollTop = 0;
@@ -84,22 +94,49 @@ function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongR
     }
   };
 
-  const jumpToSection = (section: SongSection, index: number) => {
+  const jumpToSection = (section: StageJumpSection, index: number) => {
     const scroller = scrollRef.current;
     if (!scroller) return;
     let target: Element | null | undefined;
-    const occurrence = song.sections.slice(0, index).filter((entry) => entry.label === section.label).length;
+    let highlighted: HTMLElement[] = [];
+    const occurrence = jumpSections.slice(0, index).filter((entry) => entry.label === section.label).length;
     if (singer) {
       const matching = singerSections.filter((entry) => entry.label === section.label);
       const sourceIndex = matching[occurrence]?.sourceIndex;
       if (sourceIndex !== undefined) target = scroller.querySelector(`[data-stage-section="${sourceIndex}"]`);
     } else if (instrument === "drums") target = scroller.querySelector(`[data-stage-section="${index}"]`);
     else {
-      const matching = [...scroller.querySelectorAll(".paragraph .label")].filter((label) => label.textContent?.trim() === section.label);
-      target = matching[occurrence]?.closest(".paragraph");
+      if (section.origin === "directive" && section.sourceType) {
+        const directiveOccurrence = jumpSections.slice(0, index).filter((entry) => entry.origin === "directive" && entry.sourceType === section.sourceType).length;
+        target = scroller.querySelectorAll(`.paragraph.${section.sourceType}`)[directiveOccurrence];
+      }
+      const matching = [...scroller.querySelectorAll(section.origin === "comment" ? ".paragraph .comment" : ".paragraph .label, .paragraph .comment")].filter((marker) => marker.textContent?.trim() === section.label);
+      const markerOccurrence = section.origin === "comment" ? jumpSections.slice(0, index).filter((entry) => entry.origin === "comment" && entry.label === section.label).length : occurrence;
+      const marker = matching[markerOccurrence];
+      if (!target) target = marker?.classList.contains("label") ? marker.closest(".paragraph") : marker?.closest(".row");
+      if (marker?.classList.contains("comment") && target === marker.closest(".row")) {
+        for (let current: Element | null = target; current; current = current.nextElementSibling) {
+          if (current !== target && current.querySelector(".comment, .label")) break;
+          highlighted.push(current as HTMLElement);
+        }
+      }
     }
-    if (!target && index === 0) target = scroller.querySelector(singer ? "[data-stage-section]" : ".paragraph");
-    if (target) scroller.scrollTo({ top: scroller.scrollTop + target.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 12, behavior: "smooth" });
+    if (!target && index === 0) target = scroller.querySelector(singer ? "[data-stage-section]" : instrument === "drums" ? "[data-stage-section]" : ".paragraph");
+    if (!target) return;
+    highlightedRef.current.forEach((entry) => entry.classList.remove("stage-section-highlight"));
+    const element = target as HTMLElement;
+    if (!highlighted.length) highlighted = [element];
+    highlighted.forEach((entry) => entry.classList.remove("stage-section-highlight"));
+    void element.offsetWidth;
+    highlighted.forEach((entry) => entry.classList.add("stage-section-highlight"));
+    highlightedRef.current = highlighted;
+    setActiveSection(index);
+    scroller.scrollTo({ top: scroller.scrollTop + element.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 12, behavior: "smooth" });
+  };
+
+  const toggleSinger = () => {
+    clearSectionHighlight();
+    setSinger((value) => !value);
   };
 
   return (
@@ -113,28 +150,38 @@ function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongR
         </div>
       </header> : <div className="pointer-events-none absolute left-2 top-2 z-30 flex gap-1">
         <button onClick={() => setControlsOpen(true)} className="pointer-events-auto flex size-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-950/90" aria-label="Mostrar controles" title="Mostrar controles"><Settings2 className="size-4" /></button>
-        <button onClick={() => setSinger((value) => !value)} className={cx("pointer-events-auto flex size-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-950/90", singer && "text-indigo-300")} aria-label={singer ? "Mostrar acordes" : "Modo cantante"} title="Modo cantante"><MicVocal className="size-4" /></button>
+        <button onClick={toggleSinger} className={cx("pointer-events-auto flex size-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-950/90", singer && "text-indigo-300")} aria-label={singer ? "Mostrar acordes" : "Modo cantante"} title="Modo cantante"><MicVocal className="size-4" /></button>
         <button onClick={() => void toggleFullscreen()} className="pointer-events-auto flex size-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-950/90" aria-label={fullscreen ? "Salir de pantalla completa" : "Pantalla completa"}>{fullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}</button>
       </div>}
 
       {controlsOpen ? <div className="shrink-0 border-b border-slate-800 bg-slate-900/90 px-3 py-2 sm:px-5"><div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2">
-        <div className="flex overflow-x-auto rounded-xl bg-slate-950 p-1">{stageInstruments.map((entry) => <button key={entry.id} onClick={() => setInstrument(entry.id)} className={cx("flex min-h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-xs font-bold", instrument === entry.id ? "bg-indigo-500 text-white" : "text-slate-400")}><entry.icon className="size-4" /> <span className="hidden sm:inline">{entry.label}</span></button>)}</div>
-        <button onClick={() => setSinger((value) => !value)} className={cx("flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs font-bold", singer ? "bg-indigo-500 text-white" : "bg-slate-950 text-slate-300")} aria-pressed={singer}><MicVocal className="size-4" /> Cantante</button>
+        <div className="flex flex-wrap rounded-xl bg-slate-950 p-1">{stageInstruments.map((entry) => <button key={entry.id} onClick={() => { clearSectionHighlight(); setInstrument(entry.id); }} className={cx("flex min-h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-xs font-bold", instrument === entry.id ? "bg-indigo-500 text-white" : "text-slate-400")}><entry.icon className="size-4" /> <span className="hidden sm:inline">{entry.label}</span></button>)}</div>
+        <button onClick={toggleSinger} className={cx("flex min-h-10 items-center gap-2 rounded-xl px-3 text-xs font-bold", singer ? "bg-indigo-500 text-white" : "bg-slate-950 text-slate-300")} aria-pressed={singer}><MicVocal className="size-4" /> Cantante</button>
         <div className="flex min-h-11 items-center rounded-xl bg-slate-950"><button onClick={() => setFontSize((value) => Math.max(14, value - 2))} className="flex size-10 items-center justify-center text-slate-400"><Minus className="size-4" /></button><span className="flex items-center gap-1.5 px-1 text-xs font-bold"><Type className="size-4" /> {fontSize}</span><button onClick={() => setFontSize((value) => Math.min(32, value + 2))} className="flex size-10 items-center justify-center text-slate-400"><Plus className="size-4" /></button></div>
-        {!singer ? <div className="flex min-h-11 items-center rounded-xl bg-slate-950 p-1"><button onClick={() => setNotation("latin")} className={cx("h-9 rounded-lg px-3 text-xs font-bold", notation === "latin" ? "bg-slate-700 text-white" : "text-slate-400")}>Do Re Mi</button><button onClick={() => setNotation("english")} className={cx("h-9 rounded-lg px-3 text-xs font-bold", notation === "english" ? "bg-slate-700 text-white" : "text-slate-400")}>C D E</button></div> : null}
+        {!singer ? <div className="flex min-h-11 items-center rounded-xl bg-slate-950 p-1"><button onClick={() => { clearSectionHighlight(); setNotation("latin"); }} className={cx("h-9 rounded-lg px-3 text-xs font-bold", notation === "latin" ? "bg-slate-700 text-white" : "text-slate-400")}>Do Re Mi</button><button onClick={() => { clearSectionHighlight(); setNotation("english"); }} className={cx("h-9 rounded-lg px-3 text-xs font-bold", notation === "english" ? "bg-slate-700 text-white" : "text-slate-400")}>C D E</button></div> : null}
         <div className="ml-auto flex min-h-11 flex-1 items-center gap-3 rounded-xl bg-slate-950 px-3 sm:max-w-xs"><Gauge className="size-4 shrink-0 text-indigo-300" /><input type="range" min="0" max="100" value={speed} onChange={(event) => setSpeed(Number(event.target.value))} className="min-w-20 flex-1 accent-indigo-500" aria-label="Velocidad de autoscroll" /><span className="w-7 text-right text-xs font-bold text-slate-300">{speed}</span></div>
         <button onClick={() => setRunning((value) => !value)} className="flex min-h-11 items-center gap-2 rounded-xl bg-indigo-500 px-4 text-sm font-bold text-white hover:bg-indigo-400">{running ? <Pause className="size-4" /> : <Play className="size-4" />}{running ? "Pausar" : "Autoscroll"}</button>
       </div></div> : null}
 
       <div className="relative min-h-0 flex-1">
-        <div ref={scrollRef} className={cx("h-full overflow-y-auto scroll-smooth px-4 sm:px-8", controlsOpen ? "pb-24 pt-5 sm:pt-7" : "pb-14 pt-14")}>
-          <article className="mx-auto max-w-4xl">
+        <div ref={scrollRef} className={cx("h-full overflow-x-hidden overflow-y-auto scroll-smooth", controlsOpen ? "px-4 pb-24 pt-5 sm:px-8 sm:pt-7" : "pb-14 pl-4 pr-14 pt-14 sm:pl-8 sm:pr-16")}>
+          <article className="mx-auto max-w-4xl break-words">
             <header className="mb-5 border-b border-slate-800 pb-4"><div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-indigo-300"><span>{singer ? "Solo letra" : `Suena en ${targetKey}`}</span>{!singer && instrument === "guitar" && item.capo > 0 ? <span>· Capo {item.capo}</span> : null}{!singer ? <span>· {song.tempo} bpm</span> : null}</div>{!singer ? <p className="mt-1 text-[10px] font-semibold text-slate-400">{formatTransposeInterval(item.transposeSemitones)} · original {song.originalKey}</p> : null}<h1 className="mt-1 font-display text-3xl font-bold tracking-tight text-white sm:text-5xl">{song.title}</h1><p className="mt-1 text-xs text-slate-400">{song.artist}</p>{item.note ? <p className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/10 p-2 text-xs font-semibold text-amber-200">{item.note}</p> : null}</header>
-            {singer ? <div className="space-y-4" style={{ fontSize: `${fontSize}px`, lineHeight: 1.32 }}>{singerSections.map((section, index) => <section key={index} data-stage-section={section.sourceIndex} className="scroll-mt-3"><h2 className="mb-1 text-[0.65em] font-extrabold uppercase tracking-wider text-indigo-300">{section.label}</h2><p className="whitespace-pre-wrap">{section.lines.join("\n")}</p></section>)}</div> : instrument === "drums" ? <div className="space-y-3">{song.sections.map((section, index) => <div key={section.id} data-stage-section={index} className="rounded-xl border border-slate-800 bg-slate-900/70 p-4"><span className="text-xs font-bold uppercase tracking-wider text-indigo-300">{String(index + 1).padStart(2, "0")}</span><h2 className="mt-1 text-xl font-bold">{section.label}</h2><p className="mt-1 text-sm text-slate-400">{song.notes.find((note) => note.sectionId === section.id && note.instrument === "drums")?.content ?? "Mantener dinámica y seguir al líder."}</p></div>)}</div> : <div className="chord-sheet stage-chords text-slate-200 [&_.chord]:!text-indigo-300 [&_.label]:!bg-indigo-400/10 [&_.label]:!text-indigo-200" style={{ fontSize: `${fontSize}px` }} dangerouslySetInnerHTML={{ __html: html }} />}
+            {singer ? (
+              <div className="stage-singer space-y-5" style={{ fontSize: `${fontSize}px`, lineHeight: 1.32 }}>
+                {singerSections.map((section, index) => <section key={index} data-stage-section={section.sourceIndex} className="scroll-mt-3"><h2 className="stage-singer-label">{section.label}</h2><p className="whitespace-pre-wrap">{section.lines.join("\n")}</p></section>)}
+              </div>
+            ) : instrument === "drums" ? (
+              <div className="space-y-4">{jumpSections.map((section, index) => <div key={section.id} data-stage-section={index} className="rounded-xl border border-slate-800 bg-slate-900/70 p-4"><span className="text-xs font-bold uppercase tracking-wider text-indigo-300">{String(index + 1).padStart(2, "0")}</span><h2 className="mt-1 text-xl font-bold">{section.label}</h2><p className="mt-1 break-words text-sm text-slate-400">{song.notes.find((note) => note.sectionId === (song.sections.find((saved) => saved.label === section.label)?.id ?? section.id) && note.instrument === "drums")?.content ?? "Mantener dinámica y seguir al líder."}</p></div>)}</div>
+            ) : <div className="chord-sheet stage-chords text-slate-200 [&_.chord]:!text-indigo-300" style={{ fontSize: `${fontSize}px` }} dangerouslySetInnerHTML={{ __html: html }} />}
           </article>
         </div>
 
-        {!controlsOpen && song.sections.length ? <nav aria-label="Ir a sección" className="absolute right-[5px] top-1/2 z-20 flex max-h-[70vh] -translate-y-1/2 flex-col gap-1 overflow-y-auto rounded-xl bg-slate-950/80 p-1 shadow-xl backdrop-blur-sm">{song.sections.map((section, index) => <button key={section.id} onClick={() => jumpToSection(section, index)} className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-slate-700 bg-slate-900/90 text-[10px] font-extrabold text-indigo-200 hover:bg-indigo-500 hover:text-white" aria-label={`Ir a ${section.label}`} title={section.label}>{section.type === "chorus" ? "C" : section.type === "verse" ? `V${song.sections.slice(0, index + 1).filter((entry) => entry.type === "verse").length}` : section.type === "bridge" ? "P" : section.type === "prechorus" ? "PC" : section.type === "intro" ? "I" : "F"}</button>)}</nav> : null}
+        {!controlsOpen && jumpSections.length ? <nav aria-label="Ir a sección" className="absolute right-[5px] top-1/2 z-20 flex max-h-[70vh] -translate-y-1/2 flex-col gap-1 overflow-y-auto rounded-xl bg-slate-950/80 p-1 shadow-xl backdrop-blur-sm">{jumpSections.map((section, index) => {
+          const number = section.label.match(/\d+/)?.[0] ?? String(jumpSections.slice(0, index + 1).filter((entry) => entry.type === section.type).length);
+          const shortcut = section.type === "verse" ? `V${number}` : section.type === "chorus" ? "C" : section.type === "bridge" ? "P" : section.type === "prechorus" ? "PC" : section.type === "intro" ? "I" : section.type === "outro" ? "F" : "M";
+          return <button key={section.id} onClick={() => jumpToSection(section, index)} className={cx("flex size-9 shrink-0 items-center justify-center rounded-lg border text-[10px] font-extrabold transition", activeSection === index ? "border-indigo-200 bg-indigo-400 text-slate-950 ring-2 ring-white/65" : "border-slate-700 bg-slate-900/90 text-indigo-200 hover:bg-indigo-500 hover:text-white")} aria-label={`Ir a ${section.label}`} aria-pressed={activeSection === index} title={section.label}>{shortcut}</button>;
+        })}</nav> : null}
         {controlsOpen ? <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent" /> : null}
         {controlsOpen ? <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-2 sm:inset-x-6 sm:bottom-5">
           <button disabled={songIndex === 0} onClick={() => selectSong(songIndex - 1)} className="flex min-h-12 items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/95 px-3 text-sm font-bold text-slate-200 backdrop-blur disabled:opacity-30 sm:px-4"><ChevronLeft className="size-5" /><span className="hidden sm:inline">Anterior</span></button>

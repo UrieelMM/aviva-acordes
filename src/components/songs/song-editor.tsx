@@ -2,6 +2,7 @@
 
 import { ChordProParser, HtmlDivFormatter } from "chordsheetjs";
 import { useLiveQuery } from "dexie-react-hooks";
+import { useRouter } from "next/navigation";
 import {
   AlertCircle,
   Archive,
@@ -47,6 +48,7 @@ import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { SongEditorTutorial } from "@/components/songs/song-editor-tutorial";
 import { SongTextImportDialog } from "@/components/songs/song-text-import-dialog";
+import { isOfflineShell } from "@/components/providers/offline-navigation";
 import { Button, Card, ConfirmModal, cx } from "@/components/ui/primitives";
 import {
   chordProToPlainLyrics,
@@ -116,9 +118,13 @@ export function SongEditor({ songId }: { songId?: string }) {
 }
 
 function ChordProEditor({ initialSong }: { initialSong?: SongRecord }) {
+  const router = useRouter();
   const navigate = (href: string, replace = false) => {
-    if (replace) window.location.replace(href);
-    else window.location.assign(href);
+    if (!navigator.onLine || isOfflineShell()) {
+      if (replace) window.location.replace(href);
+      else window.location.assign(href);
+    } else if (replace) router.replace(href);
+    else router.push(href);
   };
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const gutterRef = useRef<HTMLDivElement>(null);

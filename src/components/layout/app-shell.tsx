@@ -297,11 +297,11 @@ function GlobalSearch({
           {visibleSongs.length ? (
             <SearchResultGroup title="Canciones" icon={<BookOpenText className="size-4" />}>
               {visibleSongs.map(({ song, context }) => (
-                <a key={song.id} href={`/songs/${encodeURIComponent(song.id)}`} onClick={onClose} className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-app-surface-muted">
+                <Link key={song.id} href={`/songs/${encodeURIComponent(song.id)}`} onClick={onClose} className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-app-surface-muted">
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-ink"><Music2 className="size-4" /></span>
                   <span className="min-w-0 flex-1"><strong className="block truncate text-sm">{song.title}</strong><span className="mt-0.5 block truncate text-xs text-app-secondary">{song.artist} · {song.originalKey}</span>{context ? <span className="block truncate text-xs font-medium text-brand">{context}</span> : null}</span>
                   <span className="text-[10px] font-bold text-app-secondary">Canción</span>
-                </a>
+                </Link>
               ))}
             </SearchResultGroup>
           ) : null}
