@@ -2,18 +2,38 @@
 
 import { useLiveQuery } from "dexie-react-hooks";
 import Link from "next/link";
-import { ArrowRight, CalendarDays, CheckCircle2, Clock3, ListMusic, MapPin, Plus, Sparkles } from "lucide-react";
-import { Badge, Card, PageHeader } from "@/components/ui/primitives";
+import { ArrowRight, CalendarDays, CheckCircle2, Clock3, ListMusic, MapPin, Plus, Sparkles, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
+import { Badge, Card, ConfirmModal, PageHeader } from "@/components/ui/primitives";
 import { dayjs } from "@/lib/dayjs";
-import { listSetlists, listSongs } from "@/lib/indexed-db";
+import { deleteSetlist, listSetlists, listSongs, type SetlistRecord } from "@/lib/indexed-db";
 
 export function SetlistsPage() {
   const setlists = useLiveQuery(() => listSetlists(), [], []);
   const songs = useLiveQuery(() => listSongs(), [], []);
+  const [deletingSetlist, setDeletingSetlist] = useState<SetlistRecord | null>(null);
+  const [busy, setBusy] = useState(false);
   const songMap = new Map(songs.map((song) => [song.id, song]));
+
+  const handleDelete = async () => {
+    if (!deletingSetlist || busy) return;
+    setBusy(true);
+    try {
+      await deleteSetlist(deletingSetlist.id);
+      toast.success("Setlist eliminado", { description: "Las canciones permanecen en la biblioteca." });
+      setDeletingSetlist(null);
+    } catch {
+      toast.error("No se pudo eliminar el setlist");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="space-y-7 sm:space-y-8">
       <PageHeader eyebrow="Planificación" title="Setlists" description="Prepara el orden, tono y notas de cada canción antes de subir al escenario." action={<Link href="/setlists/new" className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-hover sm:w-auto"><Plus className="size-4" /> Nuevo setlist</Link>} />
+      {deletingSetlist ? <ConfirmModal title={`¿Eliminar “${deletingSetlist.name}”?`} description="El setlist dejará de aparecer en los dispositivos del equipo cuando se sincronicen. Las canciones seguirán en la biblioteca." confirmLabel={busy ? "Eliminando" : "Eliminar setlist"} danger icon={<Trash2 className="size-5" />} onCancel={() => { if (!busy) setDeletingSetlist(null); }} onConfirm={() => void handleDelete()} /> : null}
 
       <section className="grid gap-5 xl:grid-cols-2">
         {setlists.map((setlist, index) => {
@@ -33,7 +53,7 @@ export function SetlistsPage() {
               </div>
               <div className="p-5 sm:p-6">
                 <div className="flex -space-x-2">{setlist.items.slice(0, 4).map((item, itemIndex) => <span key={item.id} className="flex size-9 items-center justify-center rounded-full border-2 border-app-surface bg-app-surface-muted text-[10px] font-extrabold text-app-secondary">{String(itemIndex + 1).padStart(2, "0")}</span>)}<span className="ml-3 self-center text-sm font-semibold text-app-secondary">{setlist.items.length} canciones · {Math.round(totalMinutes)} min</span></div>
-                <div className="mt-5 flex flex-col gap-2 sm:flex-row"><Link href={`/setlists/${setlist.id}`} className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl border border-app-border text-sm font-bold hover:bg-app-surface-muted">Editar setlist <ArrowRight className="size-4" /></Link><Link href={`/stage/${setlist.id}`} className="inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-xl bg-brand text-sm font-bold text-white hover:bg-brand-hover"><Sparkles className="size-4" /> Modo escenario</Link></div>
+                <div className="mt-5 flex gap-2"><Link href={`/setlists/${setlist.id}`} className="inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl border border-app-border px-2 text-center text-sm font-bold hover:bg-app-surface-muted">Editar <ArrowRight className="size-4" /></Link><Link href={`/stage/${setlist.id}`} className="inline-flex min-h-11 min-w-0 flex-1 items-center justify-center gap-2 rounded-xl bg-brand px-2 text-center text-sm font-bold text-white hover:bg-brand-hover"><Sparkles className="size-4" /> Escenario</Link><button type="button" onClick={() => setDeletingSetlist(setlist)} className="flex size-11 shrink-0 items-center justify-center rounded-xl border border-app-border text-app-danger transition hover:border-red-300 hover:bg-red-50" aria-label={`Eliminar setlist ${setlist.name}`} title="Eliminar setlist"><Trash2 className="size-4" /></button></div>
               </div>
             </Card>
           );

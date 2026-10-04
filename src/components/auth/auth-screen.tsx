@@ -9,12 +9,12 @@ import {
   LoaderCircle,
   LockKeyhole,
   Mail,
-  Music2,
   ShieldCheck,
   Sparkles,
   UserRound,
   UsersRound,
 } from "lucide-react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -230,7 +230,7 @@ export function AuthScreen() {
 const inputClass = "min-h-12 w-full rounded-xl border border-app-border bg-app-surface-muted pl-10 pr-3 text-sm font-medium text-app-text outline-none transition placeholder:text-app-secondary/70 focus:border-brand focus:bg-app-surface disabled:opacity-60";
 
 function AuthBrand({ compact = false }: { compact?: boolean }) {
-  return <div className="flex items-center gap-3"><span className={cx("flex items-center justify-center rounded-2xl bg-indigo-500 text-white shadow-xl shadow-indigo-950/30", compact ? "size-11" : "size-12")}><Music2 className="size-6" /></span><span><strong className={cx("block font-display font-bold leading-none", compact ? "text-xl text-app-text" : "text-2xl")}>WorshipNotes</strong><span className={cx("mt-1 block text-[10px] font-bold uppercase tracking-[0.19em]", compact ? "text-app-secondary" : "text-slate-400")}>Worship workspace</span></span></div>;
+  return <div className="flex items-center gap-3"><Image src="/icon.svg" alt="" width={48} height={48} className={cx("rounded-2xl shadow-xl shadow-indigo-950/30", compact ? "size-11" : "size-12")} /><span><strong className={cx("block font-display font-bold leading-none", compact ? "text-xl text-app-text" : "text-2xl")}>WorshipNotes</strong><span className={cx("mt-1 block text-[10px] font-bold uppercase tracking-[0.19em]", compact ? "text-app-secondary" : "text-slate-400")}>Worship workspace</span></span></div>;
 }
 
 function Feature({ icon, value, label }: { icon: React.ReactNode; value: string; label: string }) {

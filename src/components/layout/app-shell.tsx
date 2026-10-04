@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import {
   BookOpenText,
+  CalendarCheck2,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -33,6 +35,7 @@ import { ManualSyncButton } from "@/components/sync/manual-sync-button";
 import { useFirebaseSyncStatus } from "@/components/providers/firebase-sync-provider";
 import { cx } from "@/components/ui/primitives";
 import { listSetlists, listSongs, type SetlistRecord, type SongRecord } from "@/lib/indexed-db";
+import { getTodaySetlist } from "@/lib/setlist-selection";
 import { searchSongs } from "@/lib/song-search";
 import { themeOptions } from "@/lib/themes";
 import { useUiStore } from "@/stores/ui-store";
@@ -58,10 +61,12 @@ export function AppShell({ children, pathnameOverride }: { children: ReactNode; 
   const [loggingOut, setLoggingOut] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [now, setNow] = useState(() => new Date());
   const searchInputRef = useRef<HTMLInputElement>(null);
   const sync = useFirebaseSyncStatus();
   const songs = useLiveQuery(() => listSongs(), [], []) ?? [];
   const setlists = useLiveQuery(() => listSetlists(), [], []) ?? [];
+  const todaySetlist = getTodaySetlist(setlists, now);
   const selectedTheme = themeOptions.find((option) => option.id === theme) ?? themeOptions[0];
   const accountName = auth.user?.displayName?.trim() || auth.user?.email?.split("@")[0] || "Usuario";
   const initials = getInitials(accountName);
@@ -76,6 +81,16 @@ export function AppShell({ children, pathnameOverride }: { children: ReactNode; 
   useEffect(() => {
     if (searchOpen) requestAnimationFrame(() => searchInputRef.current?.focus());
   }, [searchOpen]);
+
+  useEffect(() => {
+    const updateClock = () => setNow(new Date());
+    const timer = window.setInterval(updateClock, 30_000);
+    document.addEventListener("visibilitychange", updateClock);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", updateClock);
+    };
+  }, []);
 
   useEffect(() => {
     const handleShortcut = (event: KeyboardEvent) => {
@@ -131,6 +146,7 @@ export function AppShell({ children, pathnameOverride }: { children: ReactNode; 
               </Link>
             );
           })}
+          {todaySetlist ? <Link href={`/stage/${todaySetlist.id}`} title={todaySetlist.name} aria-label={`Abrir setlist de hoy: ${todaySetlist.name}`} className={cx("mt-4 flex min-h-11 items-center gap-3 rounded-xl bg-brand-soft px-3 text-sm font-bold text-brand-ink transition hover:bg-brand-soft/70", collapsed && "justify-center px-0")}><CalendarCheck2 className="size-5 shrink-0" />{!collapsed ? <span className="min-w-0"><span className="block">Setlist de hoy</span><span className="block truncate text-[11px] font-medium opacity-75">{todaySetlist.name}</span></span> : null}</Link> : null}
         </nav>
         <div className="border-t border-app-border p-3">
           {!collapsed ? (
@@ -155,6 +171,7 @@ export function AppShell({ children, pathnameOverride }: { children: ReactNode; 
               <item.icon className="size-5" /> {item.label}
             </Link>
           ))}
+          {todaySetlist ? <Link href={`/stage/${todaySetlist.id}`} onClick={() => setMobileOpen(false)} aria-label={`Abrir setlist de hoy: ${todaySetlist.name}`} className="mt-3 flex min-h-12 items-center gap-3 rounded-xl bg-brand-soft px-4 text-sm font-bold text-brand-ink"><CalendarCheck2 className="size-5 shrink-0" /><span className="min-w-0"><span className="block">Setlist de hoy</span><span className="block truncate text-[11px] font-medium opacity-75">{todaySetlist.name}</span></span></Link> : null}
         </nav>
         <div className="border-t border-app-border p-4"><p className="mb-2 text-xs text-app-secondary">Descarga los últimos cambios del equipo para usarlos sin internet.</p><ManualSyncButton variant="drawer" /></div>
       </aside>
@@ -233,7 +250,7 @@ export function AppShell({ children, pathnameOverride }: { children: ReactNode; 
         <main className="mx-auto w-full max-w-[1540px] px-4 pb-24 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pb-10">{children}</main>
       </div>
 
-      <nav className="mobile-bottom-nav fixed inset-x-3 z-30 grid grid-cols-4 rounded-2xl border border-app-border bg-app-surface/95 p-1.5 shadow-2xl shadow-slate-950/15 backdrop-blur-xl lg:hidden" aria-label="Navegación móvil">
+      <nav className={cx("mobile-bottom-nav fixed inset-x-3 z-30 grid rounded-2xl border border-app-border bg-app-surface/95 p-1.5 shadow-2xl shadow-slate-950/15 backdrop-blur-xl lg:hidden", todaySetlist ? "grid-cols-5" : "grid-cols-4")} aria-label="Navegación móvil">
         {navItems.map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           return (
@@ -242,6 +259,7 @@ export function AppShell({ children, pathnameOverride }: { children: ReactNode; 
             </Link>
           );
         })}
+        {todaySetlist ? <Link href={`/stage/${todaySetlist.id}`} title={todaySetlist.name} aria-label={`Abrir setlist de hoy: ${todaySetlist.name}`} className="flex min-h-12 min-w-0 flex-col items-center justify-center gap-1 rounded-xl bg-brand-soft text-[10px] font-extrabold text-brand-ink"><CalendarCheck2 className="size-4.5" /><span>Hoy</span></Link> : null}
       </nav>
       <InstallAlert />
     </div>
@@ -359,10 +377,7 @@ function getInitials(name: string) {
 function Brand({ compact = false }: { compact?: boolean }) {
   return (
     <Link href="/" className={cx("flex h-[4.5rem] items-center gap-3 border-b border-app-border px-5", compact && "justify-center px-0")}>
-      <span className="relative flex size-10 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-brand text-white shadow-lg shadow-[var(--app-glow)]">
-        <Music2 className="size-5" />
-        <span className="absolute bottom-0 left-0 h-1 w-full bg-white/25" />
-      </span>
+      <Image src="/icon.svg" alt="" width={40} height={40} className="size-10 shrink-0 rounded-xl shadow-lg shadow-[var(--app-glow)]" />
       {!compact ? <span><strong className="block font-display text-lg leading-none tracking-tight">WorshipNotes</strong><span className="mt-1 block text-[10px] font-bold uppercase tracking-[0.18em] text-app-secondary">Worship workspace</span></span> : null}
     </Link>
   );

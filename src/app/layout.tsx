@@ -9,7 +9,10 @@ export const metadata: Metadata = {
   },
   description: "Canciones, arreglos y setlists para equipos de alabanza.",
   manifest: "/manifest.webmanifest",
-  icons: { apple: "/apple-touch-icon.png" },
+  icons: {
+    icon: [{ url: "/icon.svg?v=2", type: "image/svg+xml" }],
+    apple: "/apple-touch-icon.png?v=2",
+  },
   applicationName: "WorshipNotes",
   appleWebApp: {
     capable: true,

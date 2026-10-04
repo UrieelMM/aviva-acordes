@@ -6,9 +6,10 @@ import { useRouter } from "next/navigation";
 import { CalendarDays, ChevronDown, ChevronUp, Clock3, LoaderCircle, MapPin, Minus, Music2, Plus, Save, Search, Sparkles, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Button, Card, PageHeader } from "@/components/ui/primitives";
+import { Button, Card, ConfirmModal, PageHeader } from "@/components/ui/primitives";
 import { isOfflineShell } from "@/components/providers/offline-navigation";
-import { getSetlistRecord, listSongs, saveSetlist, type SetlistRecord } from "@/lib/indexed-db";
+import { dayjs } from "@/lib/dayjs";
+import { deleteSetlist, getSetlistRecord, listSongs, saveSetlist, type SetlistRecord } from "@/lib/indexed-db";
 import { formatSignedSemitones, formatTransposeInterval, transposeKey } from "@/lib/music";
 import type { SetlistItem } from "@/types/domain";
 
@@ -23,14 +24,16 @@ export function SetlistBuilder({ setlistId }: { setlistId?: string }) {
 function SetlistForm({ existing, songs }: { existing?: SetlistRecord; songs: Awaited<ReturnType<typeof listSongs>> }) {
   const router = useRouter();
   const [name, setName] = useState(existing?.name ?? "Nuevo setlist");
-  const [date, setDate] = useState(existing?.date ?? new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(existing?.date ?? dayjs().format("YYYY-MM-DD"));
   const [time, setTime] = useState(existing?.time ?? "11:00");
   const [venue, setVenue] = useState(existing?.venue ?? "Auditorio principal");
   const [leader, setLeader] = useState(existing?.leader ?? "");
-  const [status, setStatus] = useState<"draft" | "ready">(existing?.status ?? "draft");
+  const [status, setStatus] = useState<"draft" | "ready">("ready");
   const [items, setItems] = useState<SetlistItem[]>(existing?.items ?? []);
   const [pickerOpen, setPickerOpen] = useState(!existing);
   const [saving, setSaving] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const songMap = new Map(songs.map((song) => [song.id, song]));
 
   const moveItem = (index: number, direction: -1 | 1) => {
@@ -69,9 +72,25 @@ function SetlistForm({ existing, songs }: { existing?: SetlistRecord; songs: Awa
     }
   };
 
+  const handleDelete = async () => {
+    if (!existing || deleting) return;
+    setDeleting(true);
+    try {
+      await deleteSetlist(existing.id);
+      toast.success("Setlist eliminado", { description: "El cambio se sincronizará con el equipo cuando haya conexión." });
+      if (!navigator.onLine || isOfflineShell()) window.location.replace("/setlists");
+      else router.replace("/setlists");
+    } catch {
+      toast.error("No se pudo eliminar el setlist");
+      setDeleting(false);
+      setDeleteOpen(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <PageHeader backHref="/setlists" eyebrow={existing ? "Editar setlist" : "Nuevo setlist"} title={existing ? existing.name : "Planear servicio"} description="El tono, capo y notas se guardan para este evento sin modificar la canción base." action={<div className="flex gap-2"><Button variant="secondary" onClick={() => void handleSave()} disabled={saving}>{saving ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />} {saving ? "Guardando" : "Guardar"}</Button>{existing ? <Link href={`/stage/${existing.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-hover"><Sparkles className="size-4" /> Escenario</Link> : null}</div>} />
+      <PageHeader backHref="/setlists" eyebrow={existing ? "Editar setlist" : "Nuevo setlist"} title={existing ? existing.name : "Planear servicio"} description="El tono, capo y notas se guardan para este evento sin modificar la canción base." action={<div className="flex flex-wrap gap-2"><Button variant="secondary" onClick={() => void handleSave()} disabled={saving || deleting}>{saving ? <LoaderCircle className="size-4 animate-spin" /> : <Save className="size-4" />} {saving ? "Guardando" : "Guardar"}</Button>{existing ? <Link href={`/stage/${existing.id}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-hover"><Sparkles className="size-4" /> Escenario</Link> : null}{existing ? <Button variant="danger" size="icon" onClick={() => setDeleteOpen(true)} disabled={saving || deleting} aria-label="Eliminar setlist" title="Eliminar setlist"><Trash2 className="size-4" /></Button> : null}</div>} />
+      {deleteOpen && existing ? <ConfirmModal title={`¿Eliminar “${existing.name}”?`} description="El setlist dejará de aparecer en los dispositivos del equipo cuando se sincronicen. Las canciones seguirán en la biblioteca." confirmLabel={deleting ? "Eliminando" : "Eliminar setlist"} danger icon={<Trash2 className="size-5" />} onCancel={() => { if (!deleting) setDeleteOpen(false); }} onConfirm={() => void handleDelete()} /> : null}
 
       <Card className="p-4 sm:p-5">
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-[1.5fr_1fr_0.7fr_1fr]">

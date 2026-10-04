@@ -306,7 +306,7 @@ function normalizeSetlist(id: string, data: DocumentData): SetlistRecord {
     venue: stringValue(data.venue, ""),
     leader: stringValue(data.leader, ""),
     items: Array.isArray(data.items) ? data.items : [],
-    status: data.status === "ready" ? "ready" : "draft",
+    status: data.status === "draft" ? "draft" : "ready",
     createdAt: stringValue(data.createdAt, stringValue(data.updatedAt, new Date().toISOString())),
     updatedAt: stringValue(data.updatedAt, new Date().toISOString()),
     deletedAt: optionalString(data.deletedAt),

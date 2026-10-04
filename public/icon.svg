@@ -1,5 +1,30 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#4f46e5"/>
-  <path d="M303 116v235a77 77 0 1 1-36-66V169l139-33v177a77 77 0 1 1-36-66V90z" fill="#fff"/>
-  <path d="M107 416h298" stroke="#a5b4fc" stroke-width="18" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="WorshipNotes">
+  <defs>
+    <linearGradient id="night" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#090f26"/>
+      <stop offset=".56" stop-color="#17204a"/>
+      <stop offset="1" stop-color="#102a47"/>
+    </linearGradient>
+    <radialGradient id="halo" cx=".18" cy=".05" r=".88">
+      <stop stop-color="#5464e9" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#5464e9" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="ribbon" x1=".05" y1=".2" x2=".95" y2=".8">
+      <stop stop-color="#fafaff"/>
+      <stop offset=".46" stop-color="#b8c5ff"/>
+      <stop offset="1" stop-color="#75e7f8"/>
+    </linearGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1">
+      <stop stop-color="#ffffff" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity=".04"/>
+    </linearGradient>
+  </defs>
+  <path fill="url(#night)" d="M0 0h512v512H0z"/>
+  <path fill="url(#halo)" d="M0 0h512v512H0z"/>
+  <circle cx="420" cy="424" r="194" fill="#0ea5e9" opacity=".08"/>
+  <rect x="92" y="92" width="328" height="328" rx="88" fill="url(#glass)" stroke="#bec8ff" stroke-opacity=".22" stroke-width="2"/>
+  <path d="M128 179l51 154 76-119 77 119 52-154" fill="none" stroke="#09152d" stroke-opacity=".45" stroke-width="47" stroke-linecap="round" stroke-linejoin="round" transform="translate(0 9)"/>
+  <path d="M128 179l51 154 76-119 77 119 52-154" fill="none" stroke="url(#ribbon)" stroke-width="40" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M156 377h200" fill="none" stroke="#89a2ff" stroke-opacity=".45" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="384" cy="133" r="10" fill="#70e4f7"/>
 </svg>

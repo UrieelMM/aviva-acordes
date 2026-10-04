@@ -6,12 +6,13 @@ import { ArrowRight, BookOpenText, CalendarDays, Clock3, CloudCheck, ListMusic, 
 import { Badge, Card, PageHeader } from "@/components/ui/primitives";
 import { dayjs } from "@/lib/dayjs";
 import { listRecentHistory, listSetlists, listSongs } from "@/lib/indexed-db";
+import { getMostRecentSetlist } from "@/lib/setlist-selection";
 
 export function DashboardPage() {
   const songs = useLiveQuery(() => listSongs(), [], []);
   const setlists = useLiveQuery(() => listSetlists(), [], []);
   const history = useLiveQuery(() => listRecentHistory(6), [], []);
-  const nextSetlist = [...setlists].sort((a, b) => a.date.localeCompare(b.date))[0];
+  const nextSetlist = getMostRecentSetlist(setlists);
   const songMap = new Map(songs.map((song) => [song.id, song]));
   const recentUsers = new Set(history.map((entry) => entry.userId)).size;
 
@@ -26,7 +27,7 @@ export function DashboardPage() {
 
       <section className="grid gap-4 sm:grid-cols-3">
         <MetricCard icon={<BookOpenText />} value={String(songs.length)} label="Canciones activas" detail={`${songs.filter((song) => song.status === "pending").length} pendientes de sincronizar`} />
-        <MetricCard icon={<ListMusic />} value={String(setlists.length)} label="Setlists compartidos" detail={nextSetlist ? "El siguiente está disponible" : "Crea el primer setlist"} />
+        <MetricCard icon={<ListMusic />} value={String(setlists.length)} label="Setlists compartidos" detail={nextSetlist ? "El más reciente está disponible" : "Crea el primer setlist"} />
         <MetricCard icon={<Users />} value={String(recentUsers)} label="Usuarios recientes" detail="Identificados por dispositivo" />
       </section>
 
@@ -35,7 +36,7 @@ export function DashboardPage() {
           <div className="border-b border-app-border p-5 sm:p-6">
             <div className="flex flex-wrap items-start justify-between gap-4">
               <div>
-                <div className="flex items-center gap-2"><Badge tone="success"><CloudCheck className="size-3.5" /> Setlist listo</Badge><span className="text-xs font-medium text-app-secondary">4 canciones</span></div>
+                <div className="flex items-center gap-2"><Badge tone={nextSetlist.status === "ready" ? "success" : "warning"}>{nextSetlist.status === "ready" ? <CloudCheck className="size-3.5" /> : <Clock3 className="size-3.5" />} {nextSetlist.status === "ready" ? "Setlist listo" : "Borrador"}</Badge><span className="text-xs font-medium text-app-secondary">{nextSetlist.items.length} canciones</span></div>
                 <h2 className="mt-3 font-display text-2xl font-bold tracking-tight">{nextSetlist.name}</h2>
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-app-secondary">
                   <span className="inline-flex items-center gap-1.5"><CalendarDays className="size-4" /> {dayjs(nextSetlist.date).format("dddd D [de] MMMM")}</span>

@@ -1,6 +1,6 @@
 "use client";
 
-import { Music2 } from "lucide-react";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
 export function PwaSplash() {
@@ -27,7 +27,7 @@ export function PwaSplash() {
       <div className="pwa-splash__glow pwa-splash__glow--left" />
       <div className="pwa-splash__glow pwa-splash__glow--right" />
       <div className="pwa-splash__content">
-        <div className="pwa-splash__orbit"><div className="pwa-splash__mark"><Music2 aria-hidden="true" strokeWidth={1.65} /></div></div>
+        <div className="pwa-splash__orbit"><div className="pwa-splash__mark"><Image src="/icon.svg" alt="" width={117} height={117} /></div></div>
         <p className="pwa-splash__eyebrow">TU ESPACIO DE ALABANZA</p>
         <h1 className="pwa-splash__name">Worship<span>Notes</span></h1>
         <p className="pwa-splash__tagline">Cada canción, en su momento.</p>
