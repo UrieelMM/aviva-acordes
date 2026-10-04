@@ -22,6 +22,7 @@ NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=...
 NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
 NEXT_PUBLIC_FIREBASE_APP_ID=...
 NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID=... # opcional
+NEXT_PUBLIC_GOOGLE_CLIENT_ID=... # opcional si cambias de proyecto Firebase
 ```
 
 6. Publica las reglas incluidas en `firestore.rules`. Con Firebase CLI:
@@ -36,7 +37,7 @@ También puedes copiar el contenido de `firestore.rules` en **Firestore → Rule
 
 7. En **Authentication → Settings → Authorized domains**, agrega el dominio donde publicarás WorshipNotes. Firebase ya admite `localhost` para desarrollo en proyectos compatibles; si no aparece, agrégalo también.
 
-   Para el acceso con Google, conserva `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` tal como aparece en la configuración Web de Firebase (normalmente `TU_PROYECTO.firebaseapp.com`). La aplicación usa una ventana emergente y ese dominio aloja el retorno OAuth registrado por Firebase. No pongas aquí el dominio de despliegue; agrégalo únicamente a **Authorized domains**.
+   Para el acceso con Google, conserva `NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN` tal como aparece en la configuración Web de Firebase (normalmente `TU_PROYECTO.firebaseapp.com`). El ID de cliente OAuth web actual está integrado como identificador público y se puede sustituir con `NEXT_PUBLIC_GOOGLE_CLIENT_ID` si cambias de proyecto. En **Google Cloud Console → APIs y servicios → Credenciales → ID de cliente OAuth web**, agrega `https://worshipnotes.avivaecatepec.com` a **Orígenes autorizados de JavaScript**. Para desarrollo, agrega también `http://localhost:3000`. No agregues rutas ni barra final. No cambies `authDomain` al dominio del despliegue sin configurar también el callback de Firebase.
 
 8. Reinicia el servidor después de modificar `.env.local`:
 
@@ -56,7 +57,9 @@ Cada persona inicia sesión con correo/contraseña o Google. Los usuarios tienen
 
 ## Instalar y usar sin conexión
 
-La versión de producción muestra la opción de instalación en un aviso y en **Ajustes**. En Chrome para iPhone o iPad, toca **Compartir** a la derecha de la barra de direcciones y luego **Agregar a la pantalla principal**; en Safari, usa **Compartir → Agregar a pantalla de inicio**. Abre WorshipNotes con internet al menos una vez, inicia sesión y pulsa **Sincronizado** o **Actualizar** en la barra superior, el menú móvil o Ajustes para descargar todas las canciones y setlists del equipo. Puedes repetirlo cuando haya conexión para renovar la copia offline; los cambios locales pendientes se conservan. Después, la biblioteca, edición local y modo escenario usan IndexedDB y la interfaz guardada por el service worker. Los cambios pendientes se sincronizan al recuperar la conexión. Crear cuentas, acceder por primera vez con Google e importar cifras desde sitios externos requieren internet.
+La versión de producción muestra la opción de instalación en un aviso y en **Ajustes**. En Chrome para iPhone o iPad, toca **Compartir → Agregar a la pantalla principal**. En Safari, usa **Compartir → Agregar a pantalla de inicio**, activa **Abrir como app web** si aparece y abre la app desde el icono. En Android, Chrome ofrece **⋮ → Instalar app**; Firefox, Samsung Internet y Edge pueden mostrar sus propias opciones de instalación o agregado a inicio. La guía de la app se adapta al navegador. Abre WorshipNotes con internet al menos una vez, inicia sesión y pulsa **Sincronizado** o **Actualizar** en la barra superior, el menú móvil o Ajustes para descargar todas las canciones y setlists del equipo. Puedes repetirlo cuando haya conexión para renovar la copia offline; los cambios locales pendientes se conservan. Después, la biblioteca, edición local y modo escenario usan IndexedDB y la interfaz guardada por el service worker. Los cambios pendientes se sincronizan al recuperar la conexión. Crear cuentas, acceder por primera vez con Google e importar cifras desde sitios externos requieren internet.
+
+En modo escenario, el botón de pantalla completa usa la API del navegador cuando está disponible. Si iPhone o algún navegador la bloquea, oculta los controles y abre la guía de instalación: al abrir la app desde el icono de inicio se elimina la barra del navegador. Un sitio web no puede obligar a Chrome de iOS a ocultar su interfaz.
 
 La aplicación muestra una pantalla de configuración mientras falten credenciales. No necesitas agregar secretos de servidor: usa exactamente los valores públicos del objeto `firebaseConfig` de tu aplicación Web.
 

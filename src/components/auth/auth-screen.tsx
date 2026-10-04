@@ -15,6 +15,7 @@ import {
   UsersRound,
 } from "lucide-react";
 import Image from "next/image";
+import Script from "next/script";
 import { useRouter } from "next/navigation";
 import { FormEvent, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
@@ -23,6 +24,7 @@ import {
   useFirebaseAuth,
 } from "@/components/providers/firebase-auth-provider";
 import { cx } from "@/components/ui/primitives";
+import { googleOAuthClientId, isGoogleIdentityReady } from "@/lib/google-identity";
 
 type AuthMode = "login" | "register";
 
@@ -37,6 +39,8 @@ export function AuthScreen() {
   const [confirmation, setConfirmation] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [working, setWorking] = useState<"form" | "google" | "reset" | null>(null);
+  const [googleReady, setGoogleReady] = useState(!googleOAuthClientId);
+  const [googleLoadFailed, setGoogleLoadFailed] = useState(false);
 
   useEffect(() => {
     if (!auth.loading && auth.user) router.replace("/");
@@ -95,7 +99,7 @@ export function AuthScreen() {
   };
 
   const handleGoogle = async () => {
-    if (!auth.configured || working) return;
+    if (!auth.configured || working || (googleOAuthClientId && !googleReady)) return;
     setWorking("google");
     try {
       await auth.signInWithGoogle();
@@ -129,6 +133,7 @@ export function AuthScreen() {
 
   return (
     <main className="auth-screen relative min-h-dvh overflow-hidden bg-slate-950 text-white">
+      {googleOAuthClientId ? <Script src="https://accounts.google.com/gsi/client" strategy="afterInteractive" onReady={() => setGoogleReady(isGoogleIdentityReady())} onError={() => setGoogleLoadFailed(true)} /> : null}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_15%,rgba(99,102,241,0.28),transparent_30rem),radial-gradient(circle_at_85%_90%,rgba(14,165,233,0.15),transparent_28rem)]" />
       <div className="relative mx-auto grid min-h-dvh max-w-[1600px] lg:grid-cols-[1.05fr_0.95fr]">
         <section className="relative hidden overflow-hidden border-r border-white/10 p-10 lg:flex lg:flex-col xl:p-14" aria-label="Presentación de WorshipNotes">
@@ -180,12 +185,13 @@ export function AuthScreen() {
               <button
                 type="button"
                 onClick={handleGoogle}
-                disabled={!auth.configured || working !== null}
+                disabled={!auth.configured || working !== null || (Boolean(googleOAuthClientId) && !googleReady)}
                 className="mt-6 flex min-h-12 w-full items-center justify-center gap-3 rounded-xl border border-app-border bg-app-surface px-4 text-sm font-bold shadow-sm transition hover:border-brand/40 hover:bg-app-surface-muted disabled:cursor-not-allowed disabled:opacity-55"
               >
                 {working === "google" ? <LoaderCircle className="size-5 animate-spin" /> : <GoogleIcon />}
-                Continuar con Google
+                {googleOAuthClientId && !googleReady && !googleLoadFailed ? "Cargando Google…" : "Continuar con Google"}
               </button>
+              {googleLoadFailed ? <p className="mt-2 text-xs text-amber-600">No se pudo cargar Google. Revisa tu conexión y <button type="button" onClick={() => window.location.reload()} className="font-bold underline">recarga la página</button>.</p> : null}
 
               <div className="my-5 flex items-center gap-3 text-[11px] font-bold uppercase tracking-wider text-app-secondary">
                 <span className="h-px flex-1 bg-app-border" /> o con tu correo <span className="h-px flex-1 bg-app-border" />

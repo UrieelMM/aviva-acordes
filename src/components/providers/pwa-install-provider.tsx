@@ -39,6 +39,7 @@ function subscribe(callback: () => void) {
 }
 function getInstalled() {
   return window.matchMedia("(display-mode: standalone)").matches ||
+    window.matchMedia("(display-mode: fullscreen)").matches ||
     Boolean((navigator as Navigator & { standalone?: boolean }).standalone) ||
     temporaryInstalled || readFlag(INSTALLED_KEY);
 }
@@ -74,8 +75,12 @@ export function PwaInstallProvider({ children }: { children: React.ReactNode }) 
 
   const install = async () => {
     if (event) {
-      await event.prompt();
-      await event.userChoice;
+      try {
+        await event.prompt();
+        await event.userChoice;
+      } catch {
+        setGuide(getInstallGuide(navigator.userAgent, navigator.maxTouchPoints));
+      }
       setEvent(null);
       return;
     }

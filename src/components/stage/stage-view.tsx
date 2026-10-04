@@ -12,6 +12,7 @@ import { formatTransposeInterval, transformChordPro, transposeKey } from "@/lib/
 import { addStageSectionLabels, getSingerSections, getStageJumpSections } from "@/lib/stage-lyrics";
 import type { InstrumentView, Notation } from "@/types/domain";
 import { cx } from "@/components/ui/primitives";
+import { usePwaInstall } from "@/components/providers/pwa-install-provider";
 
 const stageInstruments: Array<{ id: InstrumentView; label: string; icon: typeof Guitar }> = [
   { id: "general", label: "General", icon: ListMusic },
@@ -31,6 +32,7 @@ export function StageView({ setlistId }: { setlistId: string }) {
 }
 
 function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongRecord[] }) {
+  const pwaInstall = usePwaInstall();
   const [songIndex, setSongIndex] = useState(0);
   const [instrument, setInstrument] = useState<InstrumentView>("general");
   const [notation, setNotation] = useState<Notation>("latin");
@@ -176,10 +178,25 @@ function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongR
   const toggleFullscreen = async () => {
     try {
       if (document.fullscreenElement) await document.exitFullscreen();
-      else if (stageRef.current?.requestFullscreen) await stageRef.current.requestFullscreen();
-      else toast.error("Este navegador no permite pantalla completa desde la página.");
+      else if (document.fullscreenEnabled && stageRef.current?.requestFullscreen) {
+        await stageRef.current.requestFullscreen({ navigationUI: "hide" });
+      } else {
+        await showFullscreenFallback();
+      }
     } catch {
-      toast.error("El navegador no permitió abrir pantalla completa.");
+      await showFullscreenFallback();
+    }
+  };
+
+  const showFullscreenFallback = async () => {
+    setControlsOpen(false);
+    const standalone = window.matchMedia("(display-mode: standalone), (display-mode: fullscreen)").matches ||
+      Boolean((navigator as Navigator & { standalone?: boolean }).standalone);
+    if (standalone) {
+      toast.info("Vista ampliada", { description: "Se ocultaron los controles para dar más espacio a la canción." });
+    } else {
+      toast.info("La pantalla completa depende del navegador", { description: "Instala WorshipNotes y ábrela desde su icono para usarla sin barras." });
+      await pwaInstall.install();
     }
   };
 

@@ -6,6 +6,8 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "WorshipNotes",
     description: "Herramienta para organizar canciones, ensayos y setlists del grupo de alabanza.",
     start_url: "/",
+    id: "/",
+    scope: "/",
     display: "standalone",
     background_color: "#080d1f",
     theme_color: "#080d1f",

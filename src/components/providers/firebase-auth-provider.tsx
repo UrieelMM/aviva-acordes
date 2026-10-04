@@ -2,13 +2,11 @@
 
 import {
   GoogleAuthProvider,
-  browserLocalPersistence,
   createUserWithEmailAndPassword,
   onAuthStateChanged,
   sendPasswordResetEmail,
-  setPersistence,
   signInWithEmailAndPassword,
-  signInWithPopup,
+  signInWithCredential,
   signOut,
   updateProfile,
   type User,
@@ -19,6 +17,7 @@ import {
   isFirebaseConfigured,
   missingFirebaseEnvKeys,
 } from "@/lib/firebase/client";
+import { requestGoogleAccessToken } from "@/lib/google-identity";
 
 type FirebaseAuthContextValue = {
   configured: boolean;
@@ -43,11 +42,6 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
 
     const auth = firebaseAuth;
     let active = true;
-    let persistenceSettled = false;
-    let authSettled = false;
-    const finishLoading = () => {
-      if (active && persistenceSettled && authSettled) setLoading(false);
-    };
     const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
       if (!active) return;
       if (nextUser) {
@@ -55,15 +49,9 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
         window.dispatchEvent(new Event("acorde-auth-session"));
       }
       setUser(nextUser);
-      authSettled = true;
-      finishLoading();
+      setLoading(false);
     }, () => {
-      authSettled = true;
-      finishLoading();
-    });
-    void setPersistence(auth, browserLocalPersistence).catch(() => undefined).finally(() => {
-      persistenceSettled = true;
-      finishLoading();
+      if (active) setLoading(false);
     });
 
     return () => {
@@ -93,9 +81,10 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
     },
     async signInWithGoogle() {
       const auth = requireAuth();
-      const provider = new GoogleAuthProvider();
-      provider.setCustomParameters({ prompt: "select_account" });
-      return (await signInWithPopup(auth, provider)).user;
+      // El token llega a esta página directamente: no depende del sessionStorage
+      // del helper de Firebase, que Safari puede aislar en otra ventana.
+      const accessToken = await requestGoogleAccessToken();
+      return (await signInWithCredential(auth, GoogleAuthProvider.credential(null, accessToken))).user;
     },
     async resetPassword(email) {
       await sendPasswordResetEmail(requireAuth(), email.trim());
@@ -135,6 +124,7 @@ export function getFirebaseAuthErrorMessage(error: unknown) {
     "auth/unauthorized-domain": "Este dominio no está autorizado en Firebase Authentication.",
     "auth/invalid-continue-uri": "Revisa el dominio y la URI de redirección autorizados para Google en Firebase.",
     "auth/redirect-cancelled-by-user": "Se canceló el acceso con Google.",
+    "auth/missing-initial-state": "Safari perdió el estado de acceso de Google. Reabre WorshipNotes e inténtalo de nuevo.",
   };
   return messages[code] ?? (error instanceof Error ? error.message : "No se pudo completar la autenticación.");
 }
