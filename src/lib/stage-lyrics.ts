@@ -27,13 +27,23 @@ export function getStageJumpSections(source: string, savedSections: SongSection[
     const sourceType = match[1]?.toLowerCase();
     const typeName = sourceType?.replaceAll("_", "");
     const comment = match[3]?.trim();
-    const type = typeName ? sectionTypes[typeName] : comment ? getCommentSectionType(comment) : undefined;
+    const type = typeName ? sectionTypes[typeName] ?? "instrumental" : comment ? getCommentSectionType(comment) : undefined;
     if (!type) continue;
     const number = (counts.get(type) ?? 0) + 1;
     counts.set(type, number);
     sections.push({ id: `stage-${type}-${sections.length}`, type, label: comment || match[2]?.trim() || `${labels[type]} ${number}`, origin: sourceType ? "directive" : "comment", sourceType });
   }
   return sections.length ? sections : savedSections.map((section) => ({ ...section, origin: "saved" }));
+}
+
+export function addStageSectionLabels(source: string, sections: StageJumpSection[]): string {
+  const directives = sections.filter((section) => section.origin === "directive");
+  let index = 0;
+  return source.replace(/\{start_of_([a-z_]+)(?::\s*([^}]*))?\}/gi, (match, rawType: string, label: string | undefined) => {
+    const section = directives[index++];
+    if (!section || section.sourceType !== rawType.toLowerCase() || label?.trim()) return match;
+    return `{start_of_${rawType}: ${section.label}}`;
+  });
 }
 
 export function getSingerSections(source: string): SingerSection[] {
@@ -51,7 +61,7 @@ export function getSingerSections(source: string): SingerSection[] {
     if (start) {
       flush();
       const type = start[1].replaceAll("_", "").toLowerCase();
-      const sectionType = sectionTypes[type] ?? type;
+      const sectionType = sectionTypes[type] ?? "instrumental";
       const number = (counts.get(sectionType) ?? 0) + 1;
       counts.set(sectionType, number);
       current = { label: start[2]?.trim() || `${labels[sectionType] || sectionType} ${number}`, type, sourceIndex: sourceIndex++, lines: [] };

@@ -4,12 +4,12 @@ import { ChordProParser, HtmlDivFormatter } from "chordsheetjs";
 import { useLiveQuery } from "dexie-react-hooks";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight, Drum, Gauge, Guitar, KeyboardMusic, ListMusic, LoaderCircle, Maximize2, MicVocal, Minimize2, Minus, Pause, Play, Plus, Settings2, Type, X } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { sanitizeChordSheetHtml } from "@/lib/chordpro";
 import { getSetlistRecord, listSongs, type SetlistRecord, type SongRecord } from "@/lib/indexed-db";
 import { formatTransposeInterval, transformChordPro, transposeKey } from "@/lib/music";
-import { getSingerSections, getStageJumpSections, type StageJumpSection } from "@/lib/stage-lyrics";
+import { addStageSectionLabels, getSingerSections, getStageJumpSections } from "@/lib/stage-lyrics";
 import type { InstrumentView, Notation } from "@/types/domain";
 import { cx } from "@/components/ui/primitives";
 
@@ -41,17 +41,19 @@ function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongR
   const [singer, setSinger] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [activeSection, setActiveSection] = useState<number | null>(null);
+  const [highlightCycle, setHighlightCycle] = useState(0);
+  const [highlightBounds, setHighlightBounds] = useState<{ top: number; height: number } | null>(null);
   const stageRef = useRef<HTMLElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const highlightedRef = useRef<HTMLElement[]>([]);
+  const articleRef = useRef<HTMLElement>(null);
   const item = setlist.items[Math.min(songIndex, setlist.items.length - 1)];
   const song = songs.find((entry) => entry.id === item.songId)!;
   const shift = instrument === "guitar" ? item.transposeSemitones - item.capo : item.transposeSemitones;
   const source = transformChordPro(song.chordProSource, shift, notation, song.originalKey.includes("b"));
-  const html = sanitizeChordSheetHtml(new HtmlDivFormatter().format(new ChordProParser().parse(source)));
   const targetKey = transposeKey(song.originalKey, item.transposeSemitones, song.originalKey.includes("b"));
   const singerSections = getSingerSections(song.chordProSource);
   const jumpSections = getStageJumpSections(song.chordProSource, song.sections);
+  const html = sanitizeChordSheetHtml(new HtmlDivFormatter().format(new ChordProParser().parse(addStageSectionLabels(source, jumpSections))));
 
   useEffect(() => {
     const onFullscreenChange = () => setFullscreen(Boolean(document.fullscreenElement));
@@ -70,10 +72,73 @@ function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongR
     return () => window.clearInterval(timer);
   }, [running, speed]);
 
+  useLayoutEffect(() => {
+    if (activeSection === null) return;
+    const focusJumpSections = getStageJumpSections(song.chordProSource, song.sections);
+    const focusSingerSections = getSingerSections(song.chordProSource);
+    const scroller = scrollRef.current;
+    const article = articleRef.current;
+    const section = focusJumpSections[activeSection];
+    if (!scroller || !article || !section) return;
+    let target: Element | null | undefined;
+    let lastTarget: Element | null | undefined;
+    const occurrence = focusJumpSections.slice(0, activeSection).filter((entry) => entry.label === section.label).length;
+    if (singer) {
+      const matching = focusSingerSections.filter((entry) => entry.label === section.label);
+      const sourceIndex = matching[occurrence]?.sourceIndex;
+      if (sourceIndex !== undefined) target = scroller.querySelector(`[data-stage-section="${sourceIndex}"]`);
+    } else if (instrument === "drums") target = scroller.querySelector(`[data-stage-section="${activeSection}"]`);
+    else {
+      const markerSelector = section.origin === "comment" ? ".paragraph .comment" : section.origin === "directive" ? ".paragraph .label" : ".paragraph .label, .paragraph .comment";
+      const matching = [...scroller.querySelectorAll(markerSelector)].filter((marker) => marker.textContent?.trim() === section.label);
+      const markerOccurrence = focusJumpSections.slice(0, activeSection).filter((entry) => entry.label === section.label && (section.origin === "saved" || entry.origin === section.origin)).length;
+      const marker = matching[markerOccurrence];
+      target = marker?.classList.contains("label") ? marker.closest(".paragraph") : marker?.closest(".row");
+      if (section.origin === "directive" && section.sourceType) {
+        const directiveOccurrence = focusJumpSections.slice(0, activeSection).filter((entry) => entry.origin === "directive" && entry.sourceType === section.sourceType).length;
+        target ??= scroller.querySelectorAll(`.paragraph.${section.sourceType}`)[directiveOccurrence];
+      }
+    }
+    if (!target && activeSection === 0) target = scroller.querySelector(singer || instrument === "drums" ? "[data-stage-section]" : ".paragraph");
+    if (!target) {
+      setHighlightBounds(null);
+      return;
+    }
+    if (!singer && instrument !== "drums") {
+      const firstParagraph = target.closest(".paragraph");
+      const sectionComments = new Set(focusJumpSections.filter((entry) => entry.origin === "comment").map((entry) => entry.label));
+      const isSectionMarker = (row: Element) => {
+        if (row.querySelector(".label")) return true;
+        const comment = row.querySelector(".comment")?.textContent?.trim();
+        return Boolean(comment && sectionComments.has(comment));
+      };
+      let paragraph = firstParagraph;
+      let stopped = false;
+      while (paragraph?.classList.contains("paragraph") && !stopped) {
+        if (paragraph !== firstParagraph) {
+          if (section.origin === "directive" && section.sourceType && !paragraph.classList.contains(section.sourceType)) break;
+          if (section.origin === "comment" && paragraph.classList.length > 1) break;
+        }
+        const rows = [...paragraph.children].filter((child) => child.classList.contains("row"));
+        const startRow = paragraph === firstParagraph && target.classList.contains("row") ? rows.indexOf(target) : 0;
+        for (let rowIndex = Math.max(0, startRow); rowIndex < rows.length; rowIndex++) {
+          const row = rows[rowIndex];
+          if ((paragraph !== firstParagraph || rowIndex > startRow) && isSectionMarker(row)) { stopped = true; break; }
+          lastTarget = row;
+        }
+        paragraph = paragraph.nextElementSibling;
+      }
+    }
+    const firstBounds = target.getBoundingClientRect();
+    const lastBounds = (lastTarget ?? target).getBoundingClientRect();
+    const articleBounds = article.getBoundingClientRect();
+    setHighlightBounds({ top: firstBounds.top - articleBounds.top - 8, height: lastBounds.bottom - firstBounds.top + 16 });
+    scroller.scrollTo({ top: scroller.scrollTop + firstBounds.top - scroller.getBoundingClientRect().top - (controlsOpen ? 12 : 56), behavior: "smooth" });
+  }, [activeSection, controlsOpen, highlightCycle, fontSize, html, instrument, singer, song.chordProSource, song.sections]);
+
   const clearSectionHighlight = () => {
-    highlightedRef.current.forEach((element) => element.classList.remove("stage-section-highlight"));
-    highlightedRef.current = [];
     setActiveSection(null);
+    setHighlightBounds(null);
   };
 
   const selectSong = (index: number) => {
@@ -94,44 +159,9 @@ function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongR
     }
   };
 
-  const jumpToSection = (section: StageJumpSection, index: number) => {
-    const scroller = scrollRef.current;
-    if (!scroller) return;
-    let target: Element | null | undefined;
-    let highlighted: HTMLElement[] = [];
-    const occurrence = jumpSections.slice(0, index).filter((entry) => entry.label === section.label).length;
-    if (singer) {
-      const matching = singerSections.filter((entry) => entry.label === section.label);
-      const sourceIndex = matching[occurrence]?.sourceIndex;
-      if (sourceIndex !== undefined) target = scroller.querySelector(`[data-stage-section="${sourceIndex}"]`);
-    } else if (instrument === "drums") target = scroller.querySelector(`[data-stage-section="${index}"]`);
-    else {
-      if (section.origin === "directive" && section.sourceType) {
-        const directiveOccurrence = jumpSections.slice(0, index).filter((entry) => entry.origin === "directive" && entry.sourceType === section.sourceType).length;
-        target = scroller.querySelectorAll(`.paragraph.${section.sourceType}`)[directiveOccurrence];
-      }
-      const matching = [...scroller.querySelectorAll(section.origin === "comment" ? ".paragraph .comment" : ".paragraph .label, .paragraph .comment")].filter((marker) => marker.textContent?.trim() === section.label);
-      const markerOccurrence = section.origin === "comment" ? jumpSections.slice(0, index).filter((entry) => entry.origin === "comment" && entry.label === section.label).length : occurrence;
-      const marker = matching[markerOccurrence];
-      if (!target) target = marker?.classList.contains("label") ? marker.closest(".paragraph") : marker?.closest(".row");
-      if (marker?.classList.contains("comment") && target === marker.closest(".row")) {
-        for (let current: Element | null = target; current; current = current.nextElementSibling) {
-          if (current !== target && current.querySelector(".comment, .label")) break;
-          highlighted.push(current as HTMLElement);
-        }
-      }
-    }
-    if (!target && index === 0) target = scroller.querySelector(singer ? "[data-stage-section]" : instrument === "drums" ? "[data-stage-section]" : ".paragraph");
-    if (!target) return;
-    highlightedRef.current.forEach((entry) => entry.classList.remove("stage-section-highlight"));
-    const element = target as HTMLElement;
-    if (!highlighted.length) highlighted = [element];
-    highlighted.forEach((entry) => entry.classList.remove("stage-section-highlight"));
-    void element.offsetWidth;
-    highlighted.forEach((entry) => entry.classList.add("stage-section-highlight"));
-    highlightedRef.current = highlighted;
+  const jumpToSection = (index: number) => {
     setActiveSection(index);
-    scroller.scrollTo({ top: scroller.scrollTop + element.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 12, behavior: "smooth" });
+    setHighlightCycle((value) => value + 1);
   };
 
   const toggleSinger = () => {
@@ -165,22 +195,23 @@ function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongR
 
       <div className="relative min-h-0 flex-1">
         <div ref={scrollRef} className={cx("h-full overflow-x-hidden overflow-y-auto scroll-smooth", controlsOpen ? "px-4 pb-24 pt-5 sm:px-8 sm:pt-7" : "pb-14 pl-4 pr-14 pt-14 sm:pl-8 sm:pr-16")}>
-          <article className="mx-auto max-w-4xl break-words">
-            <header className="mb-5 border-b border-slate-800 pb-4"><div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-indigo-300"><span>{singer ? "Solo letra" : `Suena en ${targetKey}`}</span>{!singer && instrument === "guitar" && item.capo > 0 ? <span>· Capo {item.capo}</span> : null}{!singer ? <span>· {song.tempo} bpm</span> : null}</div>{!singer ? <p className="mt-1 text-[10px] font-semibold text-slate-400">{formatTransposeInterval(item.transposeSemitones)} · original {song.originalKey}</p> : null}<h1 className="mt-1 font-display text-3xl font-bold tracking-tight text-white sm:text-5xl">{song.title}</h1><p className="mt-1 text-xs text-slate-400">{song.artist}</p>{item.note ? <p className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/10 p-2 text-xs font-semibold text-amber-200">{item.note}</p> : null}</header>
+          <article ref={articleRef} className="relative isolate mx-auto max-w-4xl break-words">
+            {highlightBounds && activeSection !== null ? <div key={`${song.id}-${activeSection}-${highlightCycle}`} className="stage-section-highlight" style={{ top: highlightBounds.top, height: highlightBounds.height }} aria-hidden="true" /> : null}
+            <header className="relative z-10 mb-5 border-b border-slate-800 pb-4"><div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-indigo-300"><span>{singer ? "Solo letra" : `Suena en ${targetKey}`}</span>{!singer && instrument === "guitar" && item.capo > 0 ? <span>· Capo {item.capo}</span> : null}{!singer ? <span>· {song.tempo} bpm</span> : null}</div>{!singer ? <p className="mt-1 text-[10px] font-semibold text-slate-400">{formatTransposeInterval(item.transposeSemitones)} · original {song.originalKey}</p> : null}<h1 className="mt-1 font-display text-3xl font-bold tracking-tight text-white sm:text-5xl">{song.title}</h1><p className="mt-1 text-xs text-slate-400">{song.artist}</p>{item.note ? <p className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/10 p-2 text-xs font-semibold text-amber-200">{item.note}</p> : null}</header>
             {singer ? (
-              <div className="stage-singer space-y-5" style={{ fontSize: `${fontSize}px`, lineHeight: 1.32 }}>
+              <div className="stage-singer relative z-10 space-y-5" style={{ fontSize: `${fontSize}px`, lineHeight: 1.32 }}>
                 {singerSections.map((section, index) => <section key={index} data-stage-section={section.sourceIndex} className="scroll-mt-3"><h2 className="stage-singer-label">{section.label}</h2><p className="whitespace-pre-wrap">{section.lines.join("\n")}</p></section>)}
               </div>
             ) : instrument === "drums" ? (
-              <div className="space-y-4">{jumpSections.map((section, index) => <div key={section.id} data-stage-section={index} className="rounded-xl border border-slate-800 bg-slate-900/70 p-4"><span className="text-xs font-bold uppercase tracking-wider text-indigo-300">{String(index + 1).padStart(2, "0")}</span><h2 className="mt-1 text-xl font-bold">{section.label}</h2><p className="mt-1 break-words text-sm text-slate-400">{song.notes.find((note) => note.sectionId === (song.sections.find((saved) => saved.label === section.label)?.id ?? section.id) && note.instrument === "drums")?.content ?? "Mantener dinámica y seguir al líder."}</p></div>)}</div>
-            ) : <div className="chord-sheet stage-chords text-slate-200 [&_.chord]:!text-indigo-300" style={{ fontSize: `${fontSize}px` }} dangerouslySetInnerHTML={{ __html: html }} />}
+              <div className="relative z-10 space-y-4">{jumpSections.map((section, index) => <div key={section.id} data-stage-section={index} className="rounded-xl border border-slate-800 bg-slate-900/70 p-4"><span className="text-xs font-bold uppercase tracking-wider text-indigo-300">{String(index + 1).padStart(2, "0")}</span><h2 className="stage-singer-label mt-1">{section.label}</h2><p className="mt-1 break-words text-sm text-slate-400">{song.notes.find((note) => note.sectionId === (song.sections.find((saved) => saved.label === section.label)?.id ?? section.id) && note.instrument === "drums")?.content ?? "Mantener dinámica y seguir al líder."}</p></div>)}</div>
+            ) : <div className="chord-sheet stage-chords relative z-10 text-slate-200 [&_.chord]:!text-indigo-300" style={{ fontSize: `${fontSize}px` }} dangerouslySetInnerHTML={{ __html: html }} />}
           </article>
         </div>
 
         {!controlsOpen && jumpSections.length ? <nav aria-label="Ir a sección" className="absolute right-[5px] top-1/2 z-20 flex max-h-[70vh] -translate-y-1/2 flex-col gap-1 overflow-y-auto rounded-xl bg-slate-950/80 p-1 shadow-xl backdrop-blur-sm">{jumpSections.map((section, index) => {
           const number = section.label.match(/\d+/)?.[0] ?? String(jumpSections.slice(0, index + 1).filter((entry) => entry.type === section.type).length);
           const shortcut = section.type === "verse" ? `V${number}` : section.type === "chorus" ? "C" : section.type === "bridge" ? "P" : section.type === "prechorus" ? "PC" : section.type === "intro" ? "I" : section.type === "outro" ? "F" : "M";
-          return <button key={section.id} onClick={() => jumpToSection(section, index)} className={cx("flex size-9 shrink-0 items-center justify-center rounded-lg border text-[10px] font-extrabold transition", activeSection === index ? "border-indigo-200 bg-indigo-400 text-slate-950 ring-2 ring-white/65" : "border-slate-700 bg-slate-900/90 text-indigo-200 hover:bg-indigo-500 hover:text-white")} aria-label={`Ir a ${section.label}`} aria-pressed={activeSection === index} title={section.label}>{shortcut}</button>;
+          return <button key={section.id} onClick={() => jumpToSection(index)} className={cx("flex size-9 shrink-0 items-center justify-center rounded-lg border text-[10px] font-extrabold transition", activeSection === index ? "border-indigo-200 bg-indigo-400 text-slate-950 ring-2 ring-white/65" : "border-slate-700 bg-slate-900/90 text-indigo-200 hover:bg-indigo-500 hover:text-white")} aria-label={`Ir a ${section.label}`} aria-pressed={activeSection === index} title={section.label}>{shortcut}</button>;
         })}</nav> : null}
         {controlsOpen ? <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent" /> : null}
         {controlsOpen ? <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-2 sm:inset-x-6 sm:bottom-5">
