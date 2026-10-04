@@ -38,6 +38,7 @@ function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongR
   const [speed, setSpeed] = useState(35);
   const [running, setRunning] = useState(false);
   const [controlsOpen, setControlsOpen] = useState(true);
+  const [jumpMenuHidden, setJumpMenuHidden] = useState(false);
   const [singer, setSinger] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [activeSection, setActiveSection] = useState<number | null>(null);
@@ -46,6 +47,8 @@ function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongR
   const stageRef = useRef<HTMLElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const articleRef = useRef<HTMLElement>(null);
+  const jumpScrollTargetRef = useRef<number | null>(null);
+  const jumpScrollTimerRef = useRef<number | null>(null);
   const item = setlist.items[Math.min(songIndex, setlist.items.length - 1)];
   const song = songs.find((entry) => entry.id === item.songId)!;
   const shift = instrument === "guitar" ? item.transposeSemitones - item.capo : item.transposeSemitones;
@@ -71,6 +74,19 @@ function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongR
     }, 40);
     return () => window.clearInterval(timer);
   }, [running, speed]);
+
+  useEffect(() => {
+    if (!jumpMenuHidden) return;
+    const showMenuOnKeyboardScroll = (event: KeyboardEvent) => {
+      if (["ArrowDown", "ArrowUp", "PageDown", "PageUp", "Home", "End", " "].includes(event.key)) setJumpMenuHidden(false);
+    };
+    window.addEventListener("keydown", showMenuOnKeyboardScroll);
+    return () => window.removeEventListener("keydown", showMenuOnKeyboardScroll);
+  }, [jumpMenuHidden]);
+
+  useEffect(() => () => {
+    if (jumpScrollTimerRef.current !== null) window.clearTimeout(jumpScrollTimerRef.current);
+  }, []);
 
   useLayoutEffect(() => {
     if (activeSection === null) return;
@@ -133,12 +149,20 @@ function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongR
     const lastBounds = (lastTarget ?? target).getBoundingClientRect();
     const articleBounds = article.getBoundingClientRect();
     setHighlightBounds({ top: firstBounds.top - articleBounds.top - 8, height: lastBounds.bottom - firstBounds.top + 16 });
-    scroller.scrollTo({ top: scroller.scrollTop + firstBounds.top - scroller.getBoundingClientRect().top - (controlsOpen ? 12 : 56), behavior: "smooth" });
+    const requestedTop = scroller.scrollTop + firstBounds.top - scroller.getBoundingClientRect().top - (controlsOpen ? 12 : 16);
+    const targetTop = Math.max(0, Math.min(requestedTop, scroller.scrollHeight - scroller.clientHeight));
+    if (jumpScrollTimerRef.current !== null) window.clearTimeout(jumpScrollTimerRef.current);
+    jumpScrollTargetRef.current = Math.abs(scroller.scrollTop - targetTop) > 2 ? targetTop : null;
+    if (jumpScrollTargetRef.current !== null) {
+      jumpScrollTimerRef.current = window.setTimeout(() => { jumpScrollTargetRef.current = null; jumpScrollTimerRef.current = null; }, 1600);
+      scroller.scrollTo({ top: targetTop, behavior: "smooth" });
+    }
   }, [activeSection, controlsOpen, highlightCycle, fontSize, html, instrument, singer, song.chordProSource, song.sections]);
 
   const clearSectionHighlight = () => {
     setActiveSection(null);
     setHighlightBounds(null);
+    setJumpMenuHidden(false);
   };
 
   const selectSong = (index: number) => {
@@ -160,8 +184,20 @@ function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongR
   };
 
   const jumpToSection = (index: number) => {
+    setJumpMenuHidden(true);
     setActiveSection(index);
     setHighlightCycle((value) => value + 1);
+  };
+
+  const showJumpMenuOutsideNav = (target: EventTarget | null) => {
+    if (jumpMenuHidden && target instanceof Element && !target.closest("[data-stage-jump-nav]")) {
+      jumpScrollTargetRef.current = null;
+      setJumpMenuHidden(false);
+    }
+  };
+
+  const showJumpMenuOnScroll = () => {
+    if (jumpMenuHidden && jumpScrollTargetRef.current === null) setJumpMenuHidden(false);
   };
 
   const toggleSinger = () => {
@@ -170,7 +206,7 @@ function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongR
   };
 
   return (
-    <main ref={stageRef} className="stage-gradient relative flex h-dvh flex-col overflow-hidden text-slate-100">
+    <main ref={stageRef} onPointerDownCapture={(event) => showJumpMenuOutsideNav(event.target)} onTouchStartCapture={(event) => showJumpMenuOutsideNav(event.target)} onWheelCapture={(event) => showJumpMenuOutsideNav(event.target)} className="stage-gradient relative flex h-dvh flex-col overflow-hidden text-slate-100">
       {controlsOpen ? <header className="flex h-14 shrink-0 items-center gap-2 border-b border-slate-800 bg-slate-950/80 px-3 backdrop-blur-xl sm:h-16 sm:px-5">
         <Link href={`/setlists/${setlist.id}`} className="flex size-10 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white" aria-label="Salir del modo escenario"><X className="size-5" /></Link>
         <div className="min-w-0"><p className="truncate text-xs font-bold uppercase tracking-wider text-indigo-300">{setlist.name}</p><p className="mt-0.5 truncate text-sm font-semibold text-slate-300">{songIndex + 1} de {setlist.items.length} · {song.title}</p></div>
@@ -178,11 +214,11 @@ function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongR
           <button onClick={() => setControlsOpen(false)} className="flex size-10 items-center justify-center rounded-xl bg-indigo-500 text-white" aria-label="Ocultar controles" title="Ocultar controles"><Settings2 className="size-5" /></button>
           <button onClick={() => void toggleFullscreen()} className="flex size-10 items-center justify-center rounded-xl text-slate-300 hover:bg-slate-800" aria-label={fullscreen ? "Salir de pantalla completa" : "Pantalla completa"}>{fullscreen ? <Minimize2 className="size-5" /> : <Maximize2 className="size-5" />}</button>
         </div>
-      </header> : <div className="pointer-events-none absolute left-2 top-2 z-30 flex gap-1">
+      </header> : !jumpMenuHidden ? <div className="pointer-events-none absolute left-2 top-2 z-30 flex gap-1">
         <button onClick={() => setControlsOpen(true)} className="pointer-events-auto flex size-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-950/90" aria-label="Mostrar controles" title="Mostrar controles"><Settings2 className="size-4" /></button>
         <button onClick={toggleSinger} className={cx("pointer-events-auto flex size-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-950/90", singer && "text-indigo-300")} aria-label={singer ? "Mostrar acordes" : "Modo cantante"} title="Modo cantante"><MicVocal className="size-4" /></button>
         <button onClick={() => void toggleFullscreen()} className="pointer-events-auto flex size-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-950/90" aria-label={fullscreen ? "Salir de pantalla completa" : "Pantalla completa"}>{fullscreen ? <Minimize2 className="size-4" /> : <Maximize2 className="size-4" />}</button>
-      </div>}
+      </div> : null}
 
       {controlsOpen ? <div className="shrink-0 border-b border-slate-800 bg-slate-900/90 px-3 py-2 sm:px-5"><div className="mx-auto flex max-w-7xl flex-wrap items-center gap-2">
         <div className="flex flex-wrap rounded-xl bg-slate-950 p-1">{stageInstruments.map((entry) => <button key={entry.id} onClick={() => { clearSectionHighlight(); setInstrument(entry.id); }} className={cx("flex min-h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-xs font-bold", instrument === entry.id ? "bg-indigo-500 text-white" : "text-slate-400")}><entry.icon className="size-4" /> <span className="hidden sm:inline">{entry.label}</span></button>)}</div>
@@ -194,7 +230,7 @@ function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongR
       </div></div> : null}
 
       <div className="relative min-h-0 flex-1">
-        <div ref={scrollRef} className={cx("h-full overflow-x-hidden overflow-y-auto scroll-smooth", controlsOpen ? "px-4 pb-24 pt-5 sm:px-8 sm:pt-7" : "pb-14 pl-4 pr-14 pt-14 sm:pl-8 sm:pr-16")}>
+        <div ref={scrollRef} onScroll={showJumpMenuOnScroll} className={cx("h-full overflow-x-hidden overflow-y-auto scroll-smooth", controlsOpen ? "px-4 pb-24 pt-5 sm:px-8 sm:pt-7" : "pb-14 pl-4 pr-14 pt-14 sm:pl-8 sm:pr-16")}>
           <article ref={articleRef} className="relative isolate mx-auto max-w-4xl break-words">
             {highlightBounds && activeSection !== null ? <div key={`${song.id}-${activeSection}-${highlightCycle}`} className="stage-section-highlight" style={{ top: highlightBounds.top, height: highlightBounds.height }} aria-hidden="true" /> : null}
             <header className="relative z-10 mb-5 border-b border-slate-800 pb-4"><div className="flex flex-wrap items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-indigo-300"><span>{singer ? "Solo letra" : `Suena en ${targetKey}`}</span>{!singer && instrument === "guitar" && item.capo > 0 ? <span>· Capo {item.capo}</span> : null}{!singer ? <span>· {song.tempo} bpm</span> : null}</div>{!singer ? <p className="mt-1 text-[10px] font-semibold text-slate-400">{formatTransposeInterval(item.transposeSemitones)} · original {song.originalKey}</p> : null}<h1 className="mt-1 font-display text-3xl font-bold tracking-tight text-white sm:text-5xl">{song.title}</h1><p className="mt-1 text-xs text-slate-400">{song.artist}</p>{item.note ? <p className="mt-3 rounded-xl border border-amber-400/20 bg-amber-400/10 p-2 text-xs font-semibold text-amber-200">{item.note}</p> : null}</header>
@@ -208,7 +244,7 @@ function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongR
           </article>
         </div>
 
-        {!controlsOpen && jumpSections.length ? <nav aria-label="Ir a sección" className="absolute right-[5px] top-1/2 z-20 flex max-h-[70vh] -translate-y-1/2 flex-col gap-1 overflow-y-auto rounded-xl bg-slate-950/80 p-1 shadow-xl backdrop-blur-sm">{jumpSections.map((section, index) => {
+        {!controlsOpen && jumpSections.length ? <nav data-stage-jump-nav aria-label="Ir a sección" className="absolute right-[5px] top-1/2 z-20 flex max-h-[70vh] -translate-y-1/2 flex-col gap-1 overflow-y-auto rounded-xl bg-slate-950/80 p-1 shadow-xl backdrop-blur-sm">{jumpSections.map((section, index) => {
           const number = section.label.match(/\d+/)?.[0] ?? String(jumpSections.slice(0, index + 1).filter((entry) => entry.type === section.type).length);
           const shortcut = section.type === "verse" ? `V${number}` : section.type === "chorus" ? "C" : section.type === "bridge" ? "P" : section.type === "prechorus" ? "PC" : section.type === "intro" ? "I" : section.type === "outro" ? "F" : "M";
           return <button key={section.id} onClick={() => jumpToSection(index)} className={cx("flex size-9 shrink-0 items-center justify-center rounded-lg border text-[10px] font-extrabold transition", activeSection === index ? "border-indigo-200 bg-indigo-400 text-slate-950 ring-2 ring-white/65" : "border-slate-700 bg-slate-900/90 text-indigo-200 hover:bg-indigo-500 hover:text-white")} aria-label={`Ir a ${section.label}`} aria-pressed={activeSection === index} title={section.label}>{shortcut}</button>;
