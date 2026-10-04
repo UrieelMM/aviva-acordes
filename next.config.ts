@@ -13,6 +13,14 @@ const withSerwist = withSerwistInit({
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  async rewrites() {
+    const authDomain = process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN;
+    if (!authDomain || !/^[a-z0-9-]+\.(?:firebaseapp\.com|web\.app)$/.test(authDomain)) return [];
+    return [
+      { source: "/__/auth/:path*", destination: `https://${authDomain}/__/auth/:path*` },
+      { source: "/__/firebase/init.json", destination: `https://${authDomain}/__/firebase/init.json` },
+    ];
+  },
 };
 
 export default withSerwist(nextConfig);

@@ -29,9 +29,11 @@ import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useFirebaseAuth } from "@/components/providers/firebase-auth-provider";
+import { InstallAlert } from "@/components/pwa/install-alert";
 import { useFirebaseSyncStatus } from "@/components/providers/firebase-sync-provider";
 import { cx } from "@/components/ui/primitives";
 import { listSetlists, listSongs, type SetlistRecord, type SongRecord } from "@/lib/indexed-db";
+import { searchSongs } from "@/lib/song-search";
 import { themeOptions } from "@/lib/themes";
 import { useUiStore } from "@/stores/ui-store";
 import type { ThemeName } from "@/types/domain";
@@ -43,8 +45,9 @@ const navItems = [
   { href: "/settings", label: "Ajustes", icon: Settings },
 ];
 
-export function AppShell({ children }: { children: ReactNode }) {
-  const pathname = usePathname();
+export function AppShell({ children, pathnameOverride }: { children: ReactNode; pathnameOverride?: string }) {
+  const routePathname = usePathname();
+  const pathname = pathnameOverride ?? routePathname;
   const auth = useFirebaseAuth();
   const collapsed = useUiStore((state) => state.sidebarCollapsed);
   const toggleSidebar = useUiStore((state) => state.toggleSidebar);
@@ -229,7 +232,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         <main className="mx-auto w-full max-w-[1540px] px-4 pb-24 pt-6 sm:px-6 sm:pt-8 lg:px-8 lg:pb-10">{children}</main>
       </div>
 
-      <nav className="fixed inset-x-3 bottom-3 z-30 grid grid-cols-4 rounded-2xl border border-app-border bg-app-surface/95 p-1.5 shadow-2xl shadow-slate-950/15 backdrop-blur-xl lg:hidden" aria-label="Navegación móvil">
+      <nav className="mobile-bottom-nav fixed inset-x-3 z-30 grid grid-cols-4 rounded-2xl border border-app-border bg-app-surface/95 p-1.5 shadow-2xl shadow-slate-950/15 backdrop-blur-xl lg:hidden" aria-label="Navegación móvil">
         {navItems.map((item) => {
           const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href);
           return (
@@ -239,6 +242,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           );
         })}
       </nav>
+      <InstallAlert />
     </div>
   );
 }
@@ -259,13 +263,11 @@ function GlobalSearch({
   onClose: () => void;
 }) {
   const normalizedQuery = query.trim().toLocaleLowerCase();
-  const matchingSongs = songs
-    .filter((song) => matchesSearch(song.title, song.artist, song.originalKey, song.tags.join(" "), normalizedQuery))
-    .slice(0, 5);
+  const matchingSongs = searchSongs(songs, normalizedQuery).slice(0, 5);
   const matchingSetlists = setlists
     .filter((setlist) => matchesSearch(setlist.name, setlist.leader, setlist.venue, setlist.date, normalizedQuery))
     .slice(0, 5);
-  const visibleSongs = normalizedQuery ? matchingSongs : songs.slice(0, 3);
+  const visibleSongs = normalizedQuery ? matchingSongs : searchSongs(songs.slice(0, 3), "");
   const visibleSetlists = normalizedQuery ? matchingSetlists : setlists.slice(0, 3);
   const hasResults = visibleSongs.length > 0 || visibleSetlists.length > 0;
 
@@ -282,7 +284,7 @@ function GlobalSearch({
               onChange={(event) => onQueryChange(event.target.value)}
               onKeyDown={(event) => { if (event.key === "Escape") onClose(); }}
               className="min-h-11 min-w-0 flex-1 bg-transparent text-sm font-medium outline-none placeholder:text-app-secondary"
-              placeholder="Busca canciones, artistas o setlists..."
+              placeholder="Busca título, artista, sección o letra..."
               aria-label="Buscar canciones y setlists"
               autoComplete="off"
             />
@@ -294,12 +296,12 @@ function GlobalSearch({
           {!normalizedQuery ? <p className="px-3 pb-2 pt-1 text-[10px] font-extrabold uppercase tracking-[0.16em] text-app-secondary">Últimos elementos</p> : null}
           {visibleSongs.length ? (
             <SearchResultGroup title="Canciones" icon={<BookOpenText className="size-4" />}>
-              {visibleSongs.map((song) => (
-                <Link key={song.id} href={`/songs/${song.id}`} onClick={onClose} className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-app-surface-muted">
+              {visibleSongs.map(({ song, context }) => (
+                <a key={song.id} href={`/songs/${encodeURIComponent(song.id)}`} onClick={onClose} className="flex items-center gap-3 rounded-xl px-3 py-2.5 transition hover:bg-app-surface-muted">
                   <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-brand-soft text-brand-ink"><Music2 className="size-4" /></span>
-                  <span className="min-w-0 flex-1"><strong className="block truncate text-sm">{song.title}</strong><span className="mt-0.5 block truncate text-xs text-app-secondary">{song.artist} · {song.originalKey}</span></span>
+                  <span className="min-w-0 flex-1"><strong className="block truncate text-sm">{song.title}</strong><span className="mt-0.5 block truncate text-xs text-app-secondary">{song.artist} · {song.originalKey}</span>{context ? <span className="block truncate text-xs font-medium text-brand">{context}</span> : null}</span>
                   <span className="text-[10px] font-bold text-app-secondary">Canción</span>
-                </Link>
+                </a>
               ))}
             </SearchResultGroup>
           ) : null}
@@ -314,7 +316,7 @@ function GlobalSearch({
               ))}
             </SearchResultGroup>
           ) : null}
-          {!hasResults ? <div className="px-3 py-8 text-center"><Search className="mx-auto size-6 text-app-secondary" /><p className="mt-3 text-sm font-bold">No encontramos coincidencias</p><p className="mt-1 text-xs text-app-secondary">Prueba con otro título, artista o nombre de setlist.</p></div> : null}
+          {!hasResults ? <div className="px-3 py-8 text-center"><Search className="mx-auto size-6 text-app-secondary" /><p className="mt-3 text-sm font-bold">No encontramos coincidencias</p><p className="mt-1 text-xs text-app-secondary">Prueba con una palabra de la letra, sección, artista o título.</p></div> : null}
         </div>
         <div className="border-t border-app-border bg-app-surface-muted/50 px-3 py-2 text-[10px] font-semibold text-app-secondary">El índice se actualiza automáticamente al guardar cambios.</div>
       </div>

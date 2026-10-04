@@ -63,8 +63,8 @@ export function AuthScreen() {
       emailRef.current?.focus();
       return;
     }
-    if (password.length < 8) {
-      toast.error("Contraseña muy corta", { description: "Usa al menos 8 caracteres." });
+    if (!password || (mode === "register" && password.length < 8)) {
+      toast.error(mode === "register" ? "Contraseña muy corta" : "Escribe tu contraseña", { description: mode === "register" ? "Usa al menos 8 caracteres." : "Ingresa la contraseña de tu cuenta." });
       return;
     }
     if (mode === "register" && name.trim().length < 2) {

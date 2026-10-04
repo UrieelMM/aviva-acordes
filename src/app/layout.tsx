@@ -9,6 +9,7 @@ export const metadata: Metadata = {
   },
   description: "Canciones, arreglos y setlists para equipos de alabanza.",
   manifest: "/manifest.webmanifest",
+  icons: { apple: "/apple-touch-icon.png" },
   applicationName: "Alabanza App",
   appleWebApp: {
     capable: true,

@@ -171,6 +171,12 @@ a {
   font-weight: 750;
 }
 
+.chord-sheet {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
 .chord-sheet .row {
   display: flex;
   width: max-content;
@@ -219,6 +225,17 @@ a {
     radial-gradient(circle at 50% -20%, rgba(99, 102, 241, 0.22), transparent 34rem),
     #020617;
 }
+
+.stage-chords .paragraph { margin-bottom: 0.8rem; }
+.stage-chords .row { margin-bottom: 0.15rem; }
+.stage-chords .label { margin-bottom: 0.2rem; padding: 0.18rem 0.5rem; }
+.stage-chords .chord { line-height: 1.05; }
+.stage-chords .lyrics { line-height: 1.18; }
+.stage-chords .chord:not(:last-child) { padding-right: 0.3rem; }
+
+.mobile-bottom-nav { bottom: max(0.75rem, env(safe-area-inset-bottom)); }
+.install-alert { bottom: calc(5rem + env(safe-area-inset-bottom)); }
+@media (min-width: 64rem) { .install-alert { bottom: 1.25rem; } }
 
 @media (prefers-reduced-motion: reduce) {
   *,

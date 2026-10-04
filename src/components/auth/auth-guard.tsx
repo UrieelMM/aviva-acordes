@@ -1,17 +1,19 @@
 "use client";
 
 import { LoaderCircle, Music2 } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { useFirebaseAuth } from "@/components/providers/firebase-auth-provider";
+import { isOfflineShell } from "@/components/providers/offline-navigation";
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const { loading, user } = useFirebaseAuth();
+  const offlineSession = useSyncExternalStore(subscribeOfflineSession, getOfflineSession, () => false);
 
   useEffect(() => {
-    if (!loading && !user) window.location.replace("/auth");
-  }, [loading, user]);
+    if (!loading && !user && !offlineSession) window.location.replace("/auth");
+  }, [loading, user, offlineSession]);
 
-  if (loading || !user) {
+  if (loading || (!user && !offlineSession)) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-app-bg px-6 text-app-text">
         <div className="text-center" role="status" aria-live="polite">
@@ -26,4 +28,22 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   return children;
+}
+
+function getOfflineSession() {
+  if (navigator.onLine && !isOfflineShell()) return false;
+  try { return Boolean(localStorage.getItem("acorde-last-session")); } catch { return false; }
+}
+
+function subscribeOfflineSession(callback: () => void) {
+  window.addEventListener("online", callback);
+  window.addEventListener("offline", callback);
+  window.addEventListener("storage", callback);
+  window.addEventListener("acorde-auth-session", callback);
+  return () => {
+    window.removeEventListener("online", callback);
+    window.removeEventListener("offline", callback);
+    window.removeEventListener("storage", callback);
+    window.removeEventListener("acorde-auth-session", callback);
+  };
 }

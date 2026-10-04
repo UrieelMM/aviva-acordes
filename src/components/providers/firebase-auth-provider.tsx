@@ -43,17 +43,28 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
 
     const auth = firebaseAuth;
     let active = true;
-    let unsubscribe: () => void = () => undefined;
-
-    void setPersistence(auth, browserLocalPersistence)
-      .catch(() => undefined)
-      .finally(() => {
-        if (!active) return;
-        unsubscribe = onAuthStateChanged(auth, (nextUser) => {
-          setUser(nextUser);
-          setLoading(false);
-        });
-      });
+    let persistenceSettled = false;
+    let authSettled = false;
+    const finishLoading = () => {
+      if (active && persistenceSettled && authSettled) setLoading(false);
+    };
+    const unsubscribe = onAuthStateChanged(auth, (nextUser) => {
+      if (!active) return;
+      if (nextUser) {
+        try { localStorage.setItem("acorde-last-session", nextUser.uid); } catch { /* Firebase aún puede usar su persistencia disponible. */ }
+        window.dispatchEvent(new Event("acorde-auth-session"));
+      }
+      setUser(nextUser);
+      authSettled = true;
+      finishLoading();
+    }, () => {
+      authSettled = true;
+      finishLoading();
+    });
+    void setPersistence(auth, browserLocalPersistence).catch(() => undefined).finally(() => {
+      persistenceSettled = true;
+      finishLoading();
+    });
 
     return () => {
       active = false;
@@ -73,8 +84,11 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
     async signUp(name, email, password) {
       const auth = requireAuth();
       const credential = await createUserWithEmailAndPassword(auth, email.trim(), password);
-      await updateProfile(credential.user, { displayName: name.trim() });
-      await credential.user.reload();
+      try {
+        await updateProfile(credential.user, { displayName: name.trim() });
+      } catch {
+        // La cuenta ya existe: un fallo al guardar el nombre no debe pedir crearla de nuevo.
+      }
       return auth.currentUser ?? credential.user;
     },
     async signInWithGoogle() {
@@ -88,6 +102,8 @@ export function FirebaseAuthProvider({ children }: { children: React.ReactNode }
     },
     async logout() {
       await signOut(requireAuth());
+      try { localStorage.removeItem("acorde-last-session"); } catch { /* Sin almacenamiento local. */ }
+      window.dispatchEvent(new Event("acorde-auth-session"));
       setUser(null);
     },
   }), [loading, user]);
@@ -117,6 +133,8 @@ export function getFirebaseAuthErrorMessage(error: unknown) {
     "auth/account-exists-with-different-credential": "Ese correo ya usa otro método de acceso.",
     "auth/operation-not-allowed": "Este método de acceso aún no está habilitado en Firebase.",
     "auth/unauthorized-domain": "Este dominio no está autorizado en Firebase Authentication.",
+    "auth/invalid-continue-uri": "Revisa el dominio y la URI de redirección autorizados para Google en Firebase.",
+    "auth/redirect-cancelled-by-user": "Se canceló el acceso con Google.",
   };
   return messages[code] ?? (error instanceof Error ? error.message : "No se pudo completar la autenticación.");
 }

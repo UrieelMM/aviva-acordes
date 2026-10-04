@@ -42,7 +42,6 @@ import {
   WandSparkles,
   X,
 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { toast } from "sonner";
@@ -117,7 +116,10 @@ export function SongEditor({ songId }: { songId?: string }) {
 }
 
 function ChordProEditor({ initialSong }: { initialSong?: SongRecord }) {
-  const router = useRouter();
+  const navigate = (href: string, replace = false) => {
+    if (replace) window.location.replace(href);
+    else window.location.assign(href);
+  };
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const gutterRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -327,7 +329,7 @@ function ChordProEditor({ initialSong }: { initialSong?: SongRecord }) {
         // The song was saved successfully even if draft cleanup is unavailable.
       }
       toast.success(initialSong ? "Cambios guardados" : "Canción creada", { description: "Disponible en tu biblioteca y sin conexión." });
-      if (!initialSong) router.replace(`/songs/${saved.id}`);
+      if (!initialSong) navigate(`/songs/${saved.id}`, true);
     } catch {
       setSaveStatus("error");
       toast.error("No se pudo guardar", { description: "Tus cambios no se perdieron. Revisa el almacenamiento del dispositivo e inténtalo de nuevo." });
@@ -540,7 +542,7 @@ function ChordProEditor({ initialSong }: { initialSong?: SongRecord }) {
     try {
       const copy = await duplicateSong(initialSong.id);
       toast.success("Copia creada");
-      router.push(`/songs/${copy.id}/edit`);
+      navigate(`/songs/${copy.id}/edit`);
     } catch {
       toast.error("No se pudo crear la copia");
     }
@@ -562,7 +564,7 @@ function ChordProEditor({ initialSong }: { initialSong?: SongRecord }) {
     try {
       await deleteSong(initialSong.id);
       toast.success("Canción eliminada");
-      router.replace("/songs");
+      navigate("/songs", true);
     } catch {
       toast.error("No se pudo eliminar la canción");
     }
@@ -573,7 +575,7 @@ function ChordProEditor({ initialSong }: { initialSong?: SongRecord }) {
     try {
       await archiveSong(initialSong.id);
       toast.success("Canción archivada");
-      router.replace("/songs");
+      navigate("/songs", true);
     } catch {
       toast.error("No se pudo archivar la canción");
     }
@@ -596,7 +598,7 @@ function ChordProEditor({ initialSong }: { initialSong?: SongRecord }) {
         return;
       }
     }
-    router.replace(initialSong ? `/songs/${initialSong.id}` : "/songs");
+    navigate(initialSong ? `/songs/${initialSong.id}` : "/songs", true);
   }
 
   async function handleNewSong() {
@@ -607,7 +609,7 @@ function ChordProEditor({ initialSong }: { initialSong?: SongRecord }) {
       icon: <FilePlus2 className="size-5" />,
     }))) return;
     if (initialSong) {
-      router.push("/songs/new");
+      navigate("/songs/new");
       return;
     }
     setSource(createChordProTemplate());

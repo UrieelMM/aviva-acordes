@@ -3,7 +3,6 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import Link from "next/link";
 import { CalendarDays, ChevronDown, ChevronUp, Clock3, LoaderCircle, MapPin, Minus, Music2, Plus, Save, Search, Sparkles, Trash2 } from "lucide-react";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Button, Card, PageHeader } from "@/components/ui/primitives";
@@ -20,7 +19,6 @@ export function SetlistBuilder({ setlistId }: { setlistId?: string }) {
 }
 
 function SetlistForm({ existing, songs }: { existing?: SetlistRecord; songs: Awaited<ReturnType<typeof listSongs>> }) {
-  const router = useRouter();
   const [name, setName] = useState(existing?.name ?? "Nuevo setlist");
   const [date, setDate] = useState(existing?.date ?? new Date().toISOString().slice(0, 10));
   const [time, setTime] = useState(existing?.time ?? "11:00");
@@ -56,7 +54,10 @@ function SetlistForm({ existing, songs }: { existing?: SetlistRecord; songs: Awa
     try {
       const saved = await saveSetlist({ name: name.trim(), date, time, venue: venue.trim(), leader: leader.trim(), items, status }, existing?.id);
       toast.success(existing ? "Setlist actualizado" : "Setlist creado", { description: "Se guardó offline y se sincronizará con todo el equipo." });
-      if (!existing) router.replace(`/setlists/${saved.id}`);
+      if (!existing) {
+        const href = `/setlists/${saved.id}`;
+        window.location.replace(href);
+      }
     } catch {
       toast.error("No se pudo guardar el setlist");
     } finally {
