@@ -131,4 +131,4 @@ npm run deploy:firebase
 
 5. En Meta Developers configura el callback del webhook como `https://us-central1-<PROJECT_ID>.cloudfunctions.net/whatsappWebhook`, usa el mismo `WHATSAPP_WEBHOOK_VERIFY_TOKEN` y suscribe el campo `messages` de la cuenta de WhatsApp.
 
-La política de privacidad requerida por Meta queda publicada en `/privacy`; para el dominio de producción es `https://worshipnotes.avivaecatepec.com/privacy`.
+La política de privacidad requerida por Meta queda publicada en `/privacy` y las instrucciones de eliminación de datos en `/data-deletion`; para producción son `https://worshipnotes.avivaecatepec.com/privacy` y `https://worshipnotes.avivaecatepec.com/data-deletion`.
