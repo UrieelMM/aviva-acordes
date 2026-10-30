@@ -237,7 +237,7 @@ async function initializeFirebaseSync(generation: number) {
 }
 
 function toRemotePayload(record: SongRecord | SetlistRecord, userId: string) {
-  const localOnlyKeys = new Set(["status", "syncStatus"]);
+  const localOnlyKeys = "syncStatus" in record ? new Set(["syncStatus"]) : new Set(["status"]);
   const cleaned = removeUndefined(record, localOnlyKeys) as Record<string, unknown>;
   return {
     ...cleaned,

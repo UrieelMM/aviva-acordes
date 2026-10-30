@@ -50,3 +50,55 @@ export type Setlist = {
   status: "draft" | "ready";
 };
 
+export type WhatsAppMember = {
+  id: string;
+  displayName: string;
+  email?: string;
+  phoneE164: string;
+  whatsappOptIn: boolean;
+  notificationsEnabled: boolean;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string;
+  updatedBy: string;
+};
+
+export type WhatsAppNotificationSettings = {
+  enabled: boolean;
+  notifyOnCreate: boolean;
+  notifyOnUpdate: boolean;
+  onlyReady: boolean;
+  templateName: string;
+  templateLanguage: string;
+  publicBaseUrl: string;
+  templateStatus: "APPROVED" | "PENDING" | "REJECTED" | "PAUSED" | "DISABLED" | "IN_APPEAL" | "NOT_FOUND" | "UNKNOWN";
+  templateId?: string;
+  templateCategory?: string;
+  templateStatusCheckedAt?: string;
+  templateStatusError?: string;
+};
+
+export type WhatsAppDeliveryStatus = "queued" | "sending" | "sent" | "delivered" | "read" | "failed";
+
+export type WhatsAppDelivery = {
+  id: string;
+  jobId: string;
+  setlistId: string;
+  setlistName: string;
+  action: "create" | "update";
+  memberId: string;
+  memberName: string;
+  phoneE164: string;
+  templateName: string;
+  templateLanguage: string;
+  status: WhatsAppDeliveryStatus;
+  messageId?: string;
+  createdAt: string;
+  updatedAt: string;
+  sentAt?: string;
+  deliveredAt?: string;
+  readAt?: string;
+  failedAt?: string;
+  errorCode?: string;
+  errorMessage?: string;
+};

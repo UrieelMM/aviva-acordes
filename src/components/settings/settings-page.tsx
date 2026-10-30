@@ -1,11 +1,12 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { Bell, Check, Cloud, Database, Download, Languages, MonitorCog, Moon, Music2, Palette, ShieldCheck, Smartphone, Sprout, WandSparkles } from "lucide-react";
+import { Check, Cloud, Database, Download, Languages, MonitorCog, Moon, Music2, Palette, ShieldCheck, Smartphone, Sprout, WandSparkles } from "lucide-react";
 import { useFirebaseAuth } from "@/components/providers/firebase-auth-provider";
 import { usePwaInstall } from "@/components/providers/pwa-install-provider";
 import { useFirebaseSyncStatus } from "@/components/providers/firebase-sync-provider";
 import { ManualSyncButton } from "@/components/sync/manual-sync-button";
+import { WhatsAppSettings } from "@/components/settings/whatsapp-settings";
 import { Badge, Button, Card, PageHeader, cx } from "@/components/ui/primitives";
 import { isFirebaseConfigured, missingFirebaseEnvKeys } from "@/lib/firebase/client";
 import { getDbSummary } from "@/lib/indexed-db";
@@ -43,7 +44,6 @@ export function SettingsPage() {
 
           <Card className="divide-y divide-app-border overflow-hidden">
             <SettingRow icon={<Languages />} title="Notación de acordes" description="Tu preferencia se aplica en canciones y escenario"><div className="flex rounded-xl bg-app-surface-muted p-1"><button onClick={() => setNotation("latin")} className={cx("h-9 rounded-lg px-3 text-xs font-bold", notation === "latin" && "bg-app-surface text-brand shadow-sm")}>Do Re Mi</button><button onClick={() => setNotation("english")} className={cx("h-9 rounded-lg px-3 text-xs font-bold", notation === "english" && "bg-app-surface text-brand shadow-sm")}>C D E</button></div></SettingRow>
-            <SettingRow icon={<Bell />} title="Notificaciones" description="Cambios en setlists y notas del equipo"><Toggle enabled /></SettingRow>
             <SettingRow icon={<MonitorCog />} title="Mantener pantalla activa" description="Se usa durante el modo escenario"><Toggle enabled /></SettingRow>
           </Card>
         </div>
@@ -53,6 +53,8 @@ export function SettingsPage() {
           <Card className="p-5"><div className="flex items-start justify-between gap-3"><div><h2 className="font-display text-lg font-bold">Espacio compartido</h2><p className="mt-1 text-xs leading-5 text-app-secondary">Canciones, setlists e historial son comunes para todos los usuarios autenticados.</p></div><Badge tone={isFirebaseConfigured ? sync.phase === "error" ? "warning" : "success" : "warning"}>{isFirebaseConfigured ? "Firebase" : "Sin configurar"}</Badge></div><div className="mt-4 flex items-center gap-3"><span className="flex size-11 items-center justify-center rounded-xl bg-brand-soft text-brand-ink"><Music2 className="size-5" /></span><div className="min-w-0"><p className="truncate text-sm font-bold">{auth.user?.displayName || "Equipo Central"}</p><p className="truncate text-xs text-app-secondary">{auth.user?.email ?? (isFirebaseConfigured ? "Conectando usuario…" : `${missingFirebaseEnvKeys.length} variables pendientes`)}</p></div></div><div className="mt-5 rounded-xl bg-app-surface-muted p-3 text-[11px] leading-5 text-app-secondary">{isFirebaseConfigured ? "Tu cuenta identifica los cambios del historial. Todos los usuarios con acceso leen y escriben las mismas colecciones." : "Copia .env.example como .env.local, pega las credenciales y reinicia el servidor."}</div></Card>
         </aside>
       </div>
+
+      <WhatsAppSettings />
     </div>
   );
 }

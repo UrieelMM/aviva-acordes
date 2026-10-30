@@ -5,6 +5,9 @@
   "scripts": {
     "dev": "next dev --webpack",
     "build": "next build --webpack",
+    "functions:build": "npm --prefix functions run build",
+    "functions:deploy": "firebase deploy --only functions",
+    "deploy:firebase": "firebase deploy --only firestore:rules,firestore:indexes,functions",
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit"

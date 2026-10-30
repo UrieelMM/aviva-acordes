@@ -1,6 +1,7 @@
 import { getApp, getApps, initializeApp, type FirebaseOptions } from "firebase/app";
 import { getAuth, type Auth, type User } from "firebase/auth";
 import { getFirestore, type Firestore } from "firebase/firestore";
+import { getFunctions, type Functions } from "firebase/functions";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -35,16 +36,18 @@ export const firebaseApp = isFirebaseConfigured
 
 export const firebaseAuth = firebaseApp ? getAuth(firebaseApp) : null;
 export const firebaseDb = firebaseApp ? getFirestore(firebaseApp) : null;
+export const firebaseFunctions = firebaseApp ? getFunctions(firebaseApp, "us-central1") : null;
 
 export type FirebaseServices = {
   auth: Auth;
   db: Firestore;
+  functions: Functions;
   user: User;
 };
 
 export async function getFirebaseServices(): Promise<FirebaseServices> {
-  if (!firebaseAuth || !firebaseDb) throw new Error("Firebase no está configurado.");
+  if (!firebaseAuth || !firebaseDb || !firebaseFunctions) throw new Error("Firebase no está configurado.");
   const user = firebaseAuth.currentUser;
   if (!user) throw new Error("Debes iniciar sesión para sincronizar.");
-  return { auth: firebaseAuth, db: firebaseDb, user };
+  return { auth: firebaseAuth, db: firebaseDb, functions: firebaseFunctions, user };
 }

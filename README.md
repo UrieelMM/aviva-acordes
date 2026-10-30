@@ -87,3 +87,48 @@ npm run typecheck
 npm run lint
 npm run build
 ```
+
+## Avisos de setlists por WhatsApp
+
+La sección **Ajustes → WhatsApp** permite registrar integrantes, conservar su consentimiento, pausar destinatarios, configurar cuándo se envían avisos y consultar el estado de cada mensaje. Los avisos son individuales: WhatsApp Cloud API no ofrece envío automatizado a grupos. Una sola automatización recorre los destinatarios activos y conserva un registro independiente por persona.
+
+El backend vive en `functions/` y contiene tres Cloud Functions:
+
+- `notifySetlistMembers`: escucha creaciones y actualizaciones de `setlists`, evita duplicados y envía la plantilla aprobada `setlist_actualizacion`.
+- `whatsappWebhook`: valida las notificaciones firmadas de Meta y registra los estados enviado, entregado, leído o fallido.
+- `refreshWhatsAppTemplateStatus`: consulta la plantilla por nombre en Graph API y muestra su estado real en Ajustes.
+
+La plantilla utiliza tres parámetros de cuerpo, en este orden: fecha, canciones y enlace al setlist. El número de WhatsApp configurado es `+52 56 5443 0376` (`phone_number_id` `1418694124654705`).
+
+Antes de cada lote, el backend consulta `/{WABA_ID}/message_templates`; si el estado no es `APPROVED`, conserva el intento en la bitácora y no envía mensajes. También puede ejecutarse esta consulta manualmente desde **Ajustes → WhatsApp → Verificar plantilla en Meta**.
+
+### Configurar y desplegar las funciones
+
+1. Instala y compila el backend:
+
+```bash
+npm install --prefix functions
+npm run functions:build
+```
+
+2. Copia `functions/.env.example` como `functions/.env.<PROJECT_ID>` y revisa los valores públicos. No guardes tokens o secretos en ese archivo.
+
+3. Crea los secretos de producción con Firebase CLI:
+
+```bash
+firebase functions:secrets:set WHATSAPP_ACCESS_TOKEN
+firebase functions:secrets:set WHATSAPP_APP_SECRET
+firebase functions:secrets:set WHATSAPP_WEBHOOK_VERIFY_TOKEN
+```
+
+El token debe ser permanente y pertenecer a un usuario del sistema con acceso al activo de WhatsApp. El token de verificación lo eliges tú y luego debes escribir exactamente el mismo valor en Meta.
+
+4. Publica reglas y funciones:
+
+```bash
+npm run deploy:firebase
+```
+
+5. En Meta Developers configura el callback del webhook como `https://us-central1-<PROJECT_ID>.cloudfunctions.net/whatsappWebhook`, usa el mismo `WHATSAPP_WEBHOOK_VERIFY_TOKEN` y suscribe el campo `messages` de la cuenta de WhatsApp.
+
+La política de privacidad requerida por Meta queda publicada en `/privacy`; para el dominio de producción es `https://worshipnotes.avivaecatepec.com/privacy`.

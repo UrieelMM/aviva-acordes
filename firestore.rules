@@ -15,6 +15,40 @@ service cloud.firestore {
       allow read, create, update, delete: if signedIn();
     }
 
+    // Directorio de integrantes y preferencias globales de notificación.
+    // El consentimiento se registra explícitamente en cada integrante.
+    match /members/{memberId} {
+      allow read, create, update, delete: if signedIn();
+    }
+
+    match /notificationSettings/{settingId} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly([
+          'enabled', 'notifyOnCreate', 'notifyOnUpdate', 'onlyReady',
+          'templateName', 'templateLanguage', 'publicBaseUrl',
+          'updatedAt', 'updatedBy'
+        ]);
+      allow update: if signedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'enabled', 'notifyOnCreate', 'notifyOnUpdate', 'onlyReady',
+          'templateName', 'templateLanguage', 'publicBaseUrl',
+          'updatedAt', 'updatedBy'
+        ]);
+      allow delete: if false;
+    }
+
+    // Las funciones son las únicas que crean y actualizan la bitácora.
+    match /notificationDeliveries/{deliveryId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
+    match /notificationRuns/{runId} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
+
     // El historial es compartido, pero un usuario solo puede escribir entradas
     // asociadas a su propia sesión de Firebase.
     match /history/{historyId} {
