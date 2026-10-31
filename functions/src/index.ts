@@ -305,7 +305,7 @@ async function readSongTitles(items: unknown) {
     .filter(Boolean);
   const snapshots = await db.getAll(...ids.map((id) => db.collection("songs").doc(id)));
   const titleById = new Map(snapshots.map((snapshot) => [snapshot.id, stringValue(snapshot.data()?.title, "Canción")]));
-  const result = ids.map((id, index) => `${index + 1}. ${titleById.get(id) ?? "Canción no disponible"}`).join("\n");
+  const result = ids.map((id, index) => `${index + 1}. ${titleById.get(id) ?? "Canción no disponible"}`).join(" • ");
   return result.length > 850 ? `${result.slice(0, 847)}...` : result;
 }
 
@@ -342,7 +342,7 @@ async function sendWhatsAppTemplate(input: {
         components: [
           {
             type: "body",
-            parameters: input.bodyParameters.map((text) => ({ type: "text", text })),
+            parameters: input.bodyParameters.map((text) => ({ type: "text", text: sanitizeTemplateTextParameter(text) })),
           },
           {
             type: "button",
@@ -446,6 +446,13 @@ function normalizePhone(value: string) {
   const normalized = `+${value.replace(/\D/g, "")}`;
   if (!/^\+[1-9]\d{7,14}$/.test(normalized)) throw new Error("El teléfono del integrante no tiene un formato internacional válido.");
   return normalized;
+}
+
+function sanitizeTemplateTextParameter(value: string) {
+  return value
+    .replace(/[\r\n\t]+/g, " • ")
+    .replace(/ {5,}/g, " ")
+    .trim();
 }
 
 function stringValue(value: unknown, fallback: string) {
