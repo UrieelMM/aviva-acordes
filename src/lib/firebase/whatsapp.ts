@@ -20,7 +20,7 @@ export const defaultWhatsAppSettings: WhatsAppNotificationSettings = {
   notifyOnCreate: true,
   notifyOnUpdate: true,
   onlyReady: true,
-  templateName: "setlist_actualizacion",
+  templateName: "setlist_actualizacion_v2",
   templateLanguage: "es_MX",
   publicBaseUrl: "https://worshipnotes.avivaecatepec.com",
   templateStatus: "UNKNOWN",
@@ -145,12 +145,13 @@ function normalizeMember(id: string, data: DocumentData): WhatsAppMember {
 }
 
 function normalizeSettings(data: DocumentData): WhatsAppNotificationSettings {
+  const storedTemplateName = stringValue(data.templateName, defaultWhatsAppSettings.templateName);
   return {
     enabled: data.enabled !== false,
     notifyOnCreate: data.notifyOnCreate !== false,
     notifyOnUpdate: data.notifyOnUpdate !== false,
     onlyReady: data.onlyReady !== false,
-    templateName: stringValue(data.templateName, defaultWhatsAppSettings.templateName),
+    templateName: storedTemplateName === "setlist_actualizacion" ? defaultWhatsAppSettings.templateName : storedTemplateName,
     templateLanguage: stringValue(data.templateLanguage, defaultWhatsAppSettings.templateLanguage),
     publicBaseUrl: stringValue(data.publicBaseUrl, defaultWhatsAppSettings.publicBaseUrl),
     templateStatus: normalizeTemplateStatus(data.templateStatus),

@@ -94,11 +94,11 @@ La sección **Ajustes → WhatsApp** permite registrar integrantes, conservar su
 
 El backend vive en `functions/` y contiene tres Cloud Functions:
 
-- `notifySetlistMembers`: escucha creaciones y actualizaciones de `setlists`, evita duplicados y envía la plantilla aprobada `setlist_actualizacion`.
+- `notifySetlistMembers`: escucha creaciones y actualizaciones de `setlists`, evita duplicados y envía la plantilla aprobada `setlist_actualizacion_v2`.
 - `whatsappWebhook`: valida las notificaciones firmadas de Meta y registra los estados enviado, entregado, leído o fallido.
 - `refreshWhatsAppTemplateStatus`: consulta la plantilla por nombre en Graph API y muestra su estado real en Ajustes.
 
-La plantilla utiliza tres parámetros de cuerpo, en este orden: fecha, canciones y enlace al setlist. El número de WhatsApp configurado es `+52 56 5443 0376` (`phone_number_id` `1418694124654705`).
+La plantilla utiliza dos parámetros de cuerpo, fecha y canciones, y un botón dinámico **Ver setlist**. Las canciones se envían como una lista numerada, una por línea. El número de WhatsApp configurado es `+52 56 5443 0376` (`phone_number_id` `1418694124654705`). Meta aprobó la plantilla v2 con categoría `MARKETING`.
 
 Antes de cada lote, el backend consulta `/{WABA_ID}/message_templates`; si el estado no es `APPROVED`, conserva el intento en la bitácora y no envía mensajes. También puede ejecutarse esta consulta manualmente desde **Ajustes → WhatsApp → Verificar plantilla en Meta**.
 

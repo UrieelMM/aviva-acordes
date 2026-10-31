@@ -13,12 +13,13 @@ const accessToken = defineSecret("WHATSAPP_ACCESS_TOKEN");
 const appSecret = defineSecret("WHATSAPP_APP_SECRET");
 const webhookVerifyToken = defineSecret("WHATSAPP_WEBHOOK_VERIFY_TOKEN");
 const region = "us-central1";
+const legacyTemplateName = "setlist_actualizacion";
 
 const defaultConfig = {
   phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID ?? "1418694124654705",
   businessAccountId: process.env.WHATSAPP_BUSINESS_ACCOUNT_ID ?? "1818506675954955",
   apiVersion: process.env.WHATSAPP_API_VERSION ?? "v26.0",
-  templateName: process.env.WHATSAPP_TEMPLATE_NAME ?? "setlist_actualizacion",
+  templateName: process.env.WHATSAPP_TEMPLATE_NAME ?? "setlist_actualizacion_v2",
   templateLanguage: process.env.WHATSAPP_TEMPLATE_LANGUAGE ?? "es_MX",
   publicBaseUrl: process.env.WORSHIPNOTES_PUBLIC_URL ?? "https://worshipnotes.avivaecatepec.com",
 };
@@ -145,11 +146,11 @@ export const notifySetlistMembers = onDocumentWritten({
   if (!members.length) return;
 
   const songs = await readSongTitles(setlist.items);
-  const parameters = [
+  const bodyParameters = [
     formatSetlistDate(setlist.date, setlist.time),
     songs,
-    `${settings.publicBaseUrl.replace(/\/$/, "")}/setlists/${encodeURIComponent(setlistId)}`,
   ];
+  const buttonUrlSuffix = encodeURIComponent(setlistId);
 
   let sentCount = 0;
   let failedCount = 0;
@@ -184,7 +185,8 @@ export const notifySetlistMembers = onDocumentWritten({
         phoneE164,
         templateName: settings.templateName,
         templateLanguage: settings.templateLanguage,
-        parameters,
+        bodyParameters,
+        buttonUrlSuffix,
       });
       sentCount += 1;
       await deliveryRef.update({
@@ -273,14 +275,24 @@ export const whatsappWebhook = onRequest({
 });
 
 async function readNotificationConfig(): Promise<NotificationConfig> {
-  const snapshot = await db.collection("notificationSettings").doc("whatsapp").get();
+  const settingsRef = db.collection("notificationSettings").doc("whatsapp");
+  const snapshot = await settingsRef.get();
   const data = snapshot.data() ?? {};
+  const storedTemplateName = stringValue(data.templateName, defaultConfig.templateName);
+  const templateName = storedTemplateName === legacyTemplateName ? defaultConfig.templateName : storedTemplateName;
+  if (storedTemplateName !== templateName) {
+    await settingsRef.set({
+      templateName,
+      updatedAt: FieldValue.serverTimestamp(),
+      migratedFromTemplateName: storedTemplateName,
+    }, { merge: true });
+  }
   return {
     enabled: data.enabled !== false,
     notifyOnCreate: data.notifyOnCreate !== false,
     notifyOnUpdate: data.notifyOnUpdate !== false,
     onlyReady: data.onlyReady !== false,
-    templateName: stringValue(data.templateName, defaultConfig.templateName),
+    templateName,
     templateLanguage: stringValue(data.templateLanguage, defaultConfig.templateLanguage),
     publicBaseUrl: stringValue(data.publicBaseUrl, defaultConfig.publicBaseUrl),
   };
@@ -293,7 +305,7 @@ async function readSongTitles(items: unknown) {
     .filter(Boolean);
   const snapshots = await db.getAll(...ids.map((id) => db.collection("songs").doc(id)));
   const titleById = new Map(snapshots.map((snapshot) => [snapshot.id, stringValue(snapshot.data()?.title, "Canción")]));
-  const result = ids.map((id, index) => `${index + 1}. ${titleById.get(id) ?? "Canción no disponible"}`).join("; ");
+  const result = ids.map((id, index) => `${index + 1}. ${titleById.get(id) ?? "Canción no disponible"}`).join("\n");
   return result.length > 850 ? `${result.slice(0, 847)}...` : result;
 }
 
@@ -303,10 +315,16 @@ function formatSetlistDate(date: unknown, time: unknown) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(dateValue)) return timeValue || "Fecha por confirmar";
   const parsed = new Date(`${dateValue}T12:00:00Z`);
   const formatted = new Intl.DateTimeFormat("es-MX", { dateStyle: "long", timeZone: "UTC" }).format(parsed);
-  return timeValue ? `${formatted}, ${timeValue} h` : formatted;
+  return timeValue ? `${formatted} · ${timeValue} h` : formatted;
 }
 
-async function sendWhatsAppTemplate(input: { phoneE164: string; templateName: string; templateLanguage: string; parameters: string[] }) {
+async function sendWhatsAppTemplate(input: {
+  phoneE164: string;
+  templateName: string;
+  templateLanguage: string;
+  bodyParameters: string[];
+  buttonUrlSuffix: string;
+}) {
   const response = await fetch(`https://graph.facebook.com/${defaultConfig.apiVersion}/${defaultConfig.phoneNumberId}/messages`, {
     method: "POST",
     headers: {
@@ -321,10 +339,18 @@ async function sendWhatsAppTemplate(input: { phoneE164: string; templateName: st
       template: {
         name: input.templateName,
         language: { code: input.templateLanguage },
-        components: [{
-          type: "body",
-          parameters: input.parameters.map((text) => ({ type: "text", text })),
-        }],
+        components: [
+          {
+            type: "body",
+            parameters: input.bodyParameters.map((text) => ({ type: "text", text })),
+          },
+          {
+            type: "button",
+            sub_type: "url",
+            index: "0",
+            parameters: [{ type: "text", text: input.buttonUrlSuffix }],
+          },
+        ],
       },
     }),
   });
