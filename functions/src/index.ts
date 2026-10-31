@@ -264,13 +264,23 @@ export const whatsappWebhook = onRequest({
     return;
   }
 
-  if (!verifyWebhookSignature(request.rawBody, request.header("x-hub-signature-256"), appSecret.value())) {
+  const signature = request.header("x-hub-signature-256");
+  if (!verifyWebhookSignature(request.rawBody, signature, appSecret.value())) {
+    logger.warn("Rejected WhatsApp webhook with invalid signature", {
+      hasSignature: Boolean(signature),
+      rawBodyBytes: request.rawBody.length,
+    });
     response.status(401).send("Invalid signature");
     return;
   }
 
   const statuses = extractStatuses(request.body);
+  logger.info("Processing WhatsApp delivery statuses", {
+    statusCount: statuses.length,
+    statuses: statuses.map((status) => status.status ?? "unknown"),
+  });
   await Promise.all(statuses.map((status) => updateDeliveryStatus(status)));
+  logger.info("WhatsApp delivery statuses processed", { statusCount: statuses.length });
   response.status(200).send("EVENT_RECEIVED");
 });
 
@@ -432,7 +442,34 @@ async function updateDeliveryStatus(status: WhatsAppStatus) {
     patch.errorCode = String(error?.code ?? "delivery_failed");
     patch.errorMessage = error?.error_data?.details ?? error?.message ?? error?.title ?? "WhatsApp no pudo entregar el mensaje.";
   }
-  await Promise.all(snapshot.docs.map((document) => document.ref.update(patch)));
+  await Promise.all(snapshot.docs.map(async (document) => {
+    await db.runTransaction(async (transaction) => {
+      const freshSnapshot = await transaction.get(document.ref);
+      if (!freshSnapshot.exists) return;
+      const currentStatus = freshSnapshot.get("status");
+      if (!shouldApplyDeliveryStatus(currentStatus, status.status!)) {
+        logger.info("Ignored regressive WhatsApp delivery status", {
+          messageId: status.id,
+          currentStatus,
+          incomingStatus: status.status,
+        });
+        return;
+      }
+      transaction.update(document.ref, patch);
+    });
+  }));
+}
+
+function shouldApplyDeliveryStatus(currentStatus: unknown, incomingStatus: NonNullable<WhatsAppStatus["status"]>) {
+  const progression: Record<Exclude<NonNullable<WhatsAppStatus["status"]>, "failed">, number> = {
+    sent: 1,
+    delivered: 2,
+    read: 3,
+  };
+  if (incomingStatus === "failed") return currentStatus !== "delivered" && currentStatus !== "read";
+  if (currentStatus === "failed" || typeof currentStatus !== "string") return true;
+  if (!(currentStatus in progression)) return true;
+  return progression[incomingStatus] >= progression[currentStatus as keyof typeof progression];
 }
 
 function verifyWebhookSignature(rawBody: Buffer, signatureHeader: string | undefined, secret: string) {
