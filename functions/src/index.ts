@@ -13,13 +13,13 @@ const accessToken = defineSecret("WHATSAPP_ACCESS_TOKEN");
 const appSecret = defineSecret("WHATSAPP_APP_SECRET");
 const webhookVerifyToken = defineSecret("WHATSAPP_WEBHOOK_VERIFY_TOKEN");
 const region = "us-central1";
-const legacyTemplateName = "setlist_actualizacion";
+const utilityTemplateName = "setlist_actualizacion";
 
 const defaultConfig = {
   phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID ?? "1418694124654705",
   businessAccountId: process.env.WHATSAPP_BUSINESS_ACCOUNT_ID ?? "1818506675954955",
   apiVersion: process.env.WHATSAPP_API_VERSION ?? "v26.0",
-  templateName: process.env.WHATSAPP_TEMPLATE_NAME ?? "setlist_actualizacion_v2",
+  templateName: process.env.WHATSAPP_TEMPLATE_NAME ?? utilityTemplateName,
   templateLanguage: process.env.WHATSAPP_TEMPLATE_LANGUAGE ?? "es_MX",
   publicBaseUrl: process.env.WORSHIPNOTES_PUBLIC_URL ?? "https://worshipnotes.avivaecatepec.com",
 };
@@ -146,9 +146,11 @@ export const notifySetlistMembers = onDocumentWritten({
   if (!members.length) return;
 
   const songs = await readSongTitles(setlist.items);
+  const setlistUrl = `${settings.publicBaseUrl}/setlists/${encodeURIComponent(setlistId)}`;
   const bodyParameters = [
     formatSetlistDate(setlist.date, setlist.time),
     songs,
+    ...(settings.templateName === utilityTemplateName ? [setlistUrl] : []),
   ];
   const buttonUrlSuffix = encodeURIComponent(setlistId);
 
@@ -186,7 +188,7 @@ export const notifySetlistMembers = onDocumentWritten({
         templateName: settings.templateName,
         templateLanguage: settings.templateLanguage,
         bodyParameters,
-        buttonUrlSuffix,
+        buttonUrlSuffix: settings.templateName === utilityTemplateName ? undefined : buttonUrlSuffix,
       });
       sentCount += 1;
       await deliveryRef.update({
@@ -289,12 +291,12 @@ async function readNotificationConfig(): Promise<NotificationConfig> {
   const snapshot = await settingsRef.get();
   const data = snapshot.data() ?? {};
   const storedTemplateName = stringValue(data.templateName, defaultConfig.templateName);
-  const templateName = storedTemplateName === legacyTemplateName ? defaultConfig.templateName : storedTemplateName;
+  const templateName = storedTemplateName === "setlist_actualizacion_v2" ? utilityTemplateName : storedTemplateName;
   if (storedTemplateName !== templateName) {
     await settingsRef.set({
       templateName,
-      updatedAt: FieldValue.serverTimestamp(),
       migratedFromTemplateName: storedTemplateName,
+      updatedAt: FieldValue.serverTimestamp(),
     }, { merge: true });
   }
   return {
@@ -333,8 +335,22 @@ async function sendWhatsAppTemplate(input: {
   templateName: string;
   templateLanguage: string;
   bodyParameters: string[];
-  buttonUrlSuffix: string;
+  buttonUrlSuffix?: string;
 }) {
+  const components: Array<Record<string, unknown>> = [
+    {
+      type: "body",
+      parameters: input.bodyParameters.map((text) => ({ type: "text", text: sanitizeTemplateTextParameter(text) })),
+    },
+  ];
+  if (input.buttonUrlSuffix) {
+    components.push({
+      type: "button",
+      sub_type: "url",
+      index: "0",
+      parameters: [{ type: "text", text: input.buttonUrlSuffix }],
+    });
+  }
   const response = await fetch(`https://graph.facebook.com/${defaultConfig.apiVersion}/${defaultConfig.phoneNumberId}/messages`, {
     method: "POST",
     headers: {
@@ -349,18 +365,7 @@ async function sendWhatsAppTemplate(input: {
       template: {
         name: input.templateName,
         language: { code: input.templateLanguage },
-        components: [
-          {
-            type: "body",
-            parameters: input.bodyParameters.map((text) => ({ type: "text", text: sanitizeTemplateTextParameter(text) })),
-          },
-          {
-            type: "button",
-            sub_type: "url",
-            index: "0",
-            parameters: [{ type: "text", text: input.buttonUrlSuffix }],
-          },
-        ],
+        components,
       },
     }),
   });
