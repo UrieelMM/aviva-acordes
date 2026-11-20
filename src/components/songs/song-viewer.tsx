@@ -3,7 +3,7 @@
 import { ChordProParser, HtmlDivFormatter } from "chordsheetjs";
 import { useLiveQuery } from "dexie-react-hooks";
 import Link from "next/link";
-import { AudioLines, BookOpen, Drum, Edit3, Guitar, KeyboardMusic, Minus, Music, Plus, RotateCcw, SlidersHorizontal, StickyNote, Volume2 } from "lucide-react";
+import { AudioLines, BookOpen, Drum, Edit3, Guitar, KeyboardMusic, Minus, Music, Plus, RotateCcw, SlidersHorizontal, Sparkles, StickyNote, Volume2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { Badge, Button, Card, PageHeader, cx } from "@/components/ui/primitives";
@@ -47,7 +47,7 @@ function SongViewerContent({ song }: { song: SongRecord }) {
 
   return (
     <div className="space-y-6">
-      <PageHeader backHref="/songs" eyebrow="Canción" title={song.title} description={song.artist} action={<div className="flex gap-2"><Link href={`/songs/${song.id}/edit`} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-hover"><Edit3 className="size-4" /> Editar</Link></div>} />
+      <PageHeader backHref="/songs" eyebrow="Canción" title={song.title} description={song.artist} action={<div className="flex flex-wrap gap-2"><Link href={`/songs/${encodeURIComponent(song.id)}/edit`} className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-app-border px-4 text-sm font-semibold hover:bg-app-surface-muted"><Edit3 className="size-4" /> Editar</Link><Link href={`/stage/song/${encodeURIComponent(song.id)}`} className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-brand px-4 text-sm font-semibold text-white hover:bg-brand-hover"><Sparkles className="size-4" /> Modo escenario</Link></div>} />
 
       <Card className="overflow-hidden">
         <div className="flex gap-1 overflow-x-auto border-b border-app-border p-2 sm:px-4">

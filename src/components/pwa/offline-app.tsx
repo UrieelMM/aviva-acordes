@@ -10,7 +10,7 @@ import { SongEditor } from "@/components/songs/song-editor";
 import { SetlistsPage } from "@/components/setlists/setlists-page";
 import { SetlistBuilder } from "@/components/setlists/setlist-builder";
 import { SettingsPage } from "@/components/settings/settings-page";
-import { StageView } from "@/components/stage/stage-view";
+import { SongStageView, StageView } from "@/components/stage/stage-view";
 
 export function OfflineApp() {
   const [path, setPath] = useState<string | null>(null);
@@ -30,6 +30,7 @@ export function OfflineApp() {
 
   if (!path) return <main className="flex min-h-dvh items-center justify-center bg-app-bg text-app-text">Abriendo WorshipNotes…</main>;
   const segments = path.split("/").filter(Boolean).map(decodeURIComponent);
+  if (segments[0] === "stage" && segments[1] === "song" && segments[2]) return <AuthGuard><SongStageView songId={segments[2]} /></AuthGuard>;
   if (segments[0] === "stage" && segments[1]) return <AuthGuard><StageView setlistId={segments[1]} /></AuthGuard>;
 
   let content: React.ReactNode;

@@ -37,9 +37,9 @@ function SetlistForm({ existing, songs }: { existing?: SetlistRecord; songs: Awa
   const songMap = new Map(songs.map((song) => [song.id, song]));
 
   const moveItem = (index: number, direction: -1 | 1) => {
-    const target = index + direction;
-    if (target < 0 || target >= items.length) return;
     setItems((current) => {
+      const target = index + direction;
+      if (index < 0 || index >= current.length || target < 0 || target >= current.length) return current;
       const next = [...current];
       [next[index], next[target]] = [next[target], next[index]];
       return next;
@@ -111,15 +111,15 @@ function SetlistForm({ existing, songs }: { existing?: SetlistRecord; songs: Awa
             const targetKey = transposeKey(song.originalKey, item.transposeSemitones, song.originalKey.includes("b"));
             return (
               <Card key={item.id} className="overflow-hidden">
-                <div className="relative grid items-center gap-3 p-3 sm:grid-cols-[auto_auto_minmax(0,1fr)_auto_auto] sm:p-4">
-                  <div className="hidden flex-col sm:flex"><button onClick={() => moveItem(index, -1)} className="text-app-secondary hover:text-brand" aria-label="Subir canción"><ChevronUp className="size-4" /></button><button onClick={() => moveItem(index, 1)} className="text-app-secondary hover:text-brand" aria-label="Bajar canción"><ChevronDown className="size-4" /></button></div>
-                  <span className="flex size-10 items-center justify-center rounded-xl bg-brand-soft text-sm font-extrabold text-brand-ink">{index + 1}</span>
-                  <div className="min-w-0"><h3 className="truncate font-bold">{song.title}</h3><p className="truncate text-xs text-app-secondary">{song.artist} · Original {song.originalKey} · Suena en {targetKey}</p><p className="mt-1 truncate text-[11px] font-semibold text-brand">{formatTransposeInterval(item.transposeSemitones)}</p></div>
-                  <div className="col-span-3 flex flex-wrap items-center gap-2 sm:col-span-1 sm:flex-nowrap">
+                <div className="flex flex-wrap items-center gap-3 p-3 sm:flex-nowrap sm:p-4">
+                  <div className="order-3 flex w-full items-center justify-end gap-2 border-t border-app-border pt-2 sm:order-none sm:w-auto sm:flex-col sm:gap-0 sm:border-0 sm:pt-0"><button type="button" onClick={() => moveItem(index, -1)} disabled={index === 0} className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg px-3 text-sm font-semibold text-app-secondary hover:bg-app-surface-muted hover:text-brand disabled:cursor-not-allowed disabled:opacity-30 sm:min-h-8 sm:w-8 sm:px-0" aria-label={`Subir canción ${song.title}`}><ChevronUp className="size-4" /><span className="sm:hidden">Subir</span></button><button type="button" onClick={() => moveItem(index, 1)} disabled={index === items.length - 1} className="inline-flex min-h-11 items-center justify-center gap-1 rounded-lg px-3 text-sm font-semibold text-app-secondary hover:bg-app-surface-muted hover:text-brand disabled:cursor-not-allowed disabled:opacity-30 sm:min-h-8 sm:w-8 sm:px-0" aria-label={`Bajar canción ${song.title}`}><ChevronDown className="size-4" /><span className="sm:hidden">Bajar</span></button></div>
+                  <span className="order-1 flex size-10 shrink-0 items-center justify-center rounded-xl bg-brand-soft text-sm font-extrabold text-brand-ink sm:order-none">{index + 1}</span>
+                  <div className="order-1 min-w-0 flex-1 sm:order-none"><h3 className="truncate font-bold">{song.title}</h3><p className="truncate text-xs text-app-secondary">{song.artist} · Original {song.originalKey} · Suena en {targetKey}</p><p className="mt-1 truncate text-[11px] font-semibold text-brand">{formatTransposeInterval(item.transposeSemitones)}</p></div>
+                  <div className="order-2 flex w-full flex-wrap items-center gap-2 sm:order-none sm:w-auto sm:flex-nowrap">
                     <MiniStepper label="Semit." value={formatSignedSemitones(item.transposeSemitones)} minus={() => updateItem(item.id, { transposeSemitones: Math.max(-11, item.transposeSemitones - 1) })} plus={() => updateItem(item.id, { transposeSemitones: Math.min(11, item.transposeSemitones + 1) })} />
                     <MiniStepper label="Capo" value={String(item.capo)} minus={() => updateItem(item.id, { capo: Math.max(0, item.capo - 1) })} plus={() => updateItem(item.id, { capo: Math.min(11, item.capo + 1) })} />
                   </div>
-                  <button onClick={() => setItems((current) => current.filter((currentItem) => currentItem.id !== item.id))} className="absolute right-3 top-3 flex size-9 items-center justify-center rounded-lg text-app-secondary hover:bg-red-50 hover:text-red-600 sm:static" aria-label="Quitar canción"><Trash2 className="size-4" /></button>
+                  <button onClick={() => setItems((current) => current.filter((currentItem) => currentItem.id !== item.id))} className="order-1 flex size-9 shrink-0 items-center justify-center rounded-lg text-app-secondary hover:bg-red-50 hover:text-red-600 sm:order-none" aria-label="Quitar canción"><Trash2 className="size-4" /></button>
                 </div>
                 <div className="border-t border-app-border bg-app-surface-muted/50 px-4 py-3"><input value={item.note ?? ""} onChange={(event) => updateItem(item.id, { note: event.target.value })} className="w-full bg-transparent text-xs outline-none placeholder:text-app-secondary" placeholder="Nota para esta canción, por ejemplo: repetir coro final..." /></div>
               </Card>

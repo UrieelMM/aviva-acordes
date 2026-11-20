@@ -7,10 +7,10 @@ import { ChevronLeft, ChevronRight, Gauge, ListMusic, LoaderCircle, Maximize2, M
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { sanitizeChordSheetHtml } from "@/lib/chordpro";
-import { getSetlistRecord, listSongs, type SetlistRecord, type SongRecord } from "@/lib/indexed-db";
+import { getSetlistRecord, getSongRecord, listSongs, type SongRecord } from "@/lib/indexed-db";
 import { formatSignedSemitones, formatTransposeInterval, transformChordPro, transposeKey } from "@/lib/music";
 import { addStageSectionLabels, getSingerSections, getStageJumpSections } from "@/lib/stage-lyrics";
-import type { Notation } from "@/types/domain";
+import type { Notation, SetlistItem } from "@/types/domain";
 import { cx } from "@/components/ui/primitives";
 import { usePwaInstall } from "@/components/providers/pwa-install-provider";
 
@@ -21,10 +21,17 @@ export function StageView({ setlistId }: { setlistId: string }) {
   if (!setlist) return <main className="stage-gradient flex h-dvh flex-col items-center justify-center p-8 text-center text-slate-100"><ListMusic className="size-12 text-slate-500" /><h1 className="mt-4 text-2xl font-bold">Setlist no encontrado</h1><Link href="/setlists" className="mt-5 rounded-xl bg-indigo-500 px-4 py-2 text-sm font-bold">Volver a setlists</Link></main>;
   const availableItems = setlist.items.filter((item) => songs.some((song) => song.id === item.songId));
   if (!availableItems.length) return <main className="stage-gradient flex h-dvh flex-col items-center justify-center p-8 text-center text-slate-100"><ListMusic className="size-12 text-slate-500" /><h1 className="mt-4 text-2xl font-bold">Este setlist no tiene canciones disponibles</h1><Link href={`/setlists/${setlist.id}`} className="mt-5 rounded-xl bg-indigo-500 px-4 py-2 text-sm font-bold">Editar setlist</Link></main>;
-  return <StageContent key={setlist.id} setlist={{ ...setlist, items: availableItems }} songs={songs} />;
+  return <StageContent key={setlist.id} title={setlist.name} items={availableItems} songs={songs} backHref={`/setlists/${encodeURIComponent(setlist.id)}`} />;
 }
 
-function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongRecord[] }) {
+export function SongStageView({ songId }: { songId: string }) {
+  const song = useLiveQuery(() => getSongRecord(songId), [songId], null);
+  if (song === null) return <main className="stage-gradient flex h-dvh items-center justify-center"><LoaderCircle className="size-8 animate-spin text-indigo-300" /></main>;
+  if (!song) return <main className="stage-gradient flex h-dvh flex-col items-center justify-center p-8 text-center text-slate-100"><ListMusic className="size-12 text-slate-500" /><h1 className="mt-4 text-2xl font-bold">Canción no encontrada</h1><Link href="/songs" className="mt-5 rounded-xl bg-indigo-500 px-4 py-2 text-sm font-bold">Volver a canciones</Link></main>;
+  return <StageContent key={song.id} title="Modo escenario" items={[{ id: song.id, songId: song.id, transposeSemitones: 0, capo: 0 }]} songs={[song]} backHref={`/songs/${encodeURIComponent(song.id)}`} />;
+}
+
+function StageContent({ title, items, songs, backHref }: { title: string; items: SetlistItem[]; songs: SongRecord[]; backHref: string }) {
   const pwaInstall = usePwaInstall();
   const [songIndex, setSongIndex] = useState(0);
   const [transposeOverrides, setTransposeOverrides] = useState<Record<string, number>>({});
@@ -44,7 +51,7 @@ function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongR
   const articleRef = useRef<HTMLElement>(null);
   const jumpScrollTargetRef = useRef<number | null>(null);
   const jumpScrollTimerRef = useRef<number | null>(null);
-  const item = setlist.items[Math.min(songIndex, setlist.items.length - 1)];
+  const item = items[Math.min(songIndex, items.length - 1)];
   const song = songs.find((entry) => entry.id === item.songId)!;
   const transpose = transposeOverrides[item.id] ?? item.transposeSemitones;
   const source = transformChordPro(song.chordProSource, transpose, notation, song.originalKey.includes("b"));
@@ -173,7 +180,7 @@ function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongR
   };
 
   const selectSong = (index: number) => {
-    if (index < 0 || index >= setlist.items.length) return;
+    if (index < 0 || index >= items.length) return;
     clearSectionHighlight();
     setSongIndex(index);
     setRunning(false);
@@ -239,8 +246,8 @@ function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongR
   return (
     <main ref={stageRef} onPointerDownCapture={(event) => showJumpMenuOutsideNav(event.target)} onTouchStartCapture={(event) => showJumpMenuOutsideNav(event.target)} onWheelCapture={(event) => showJumpMenuOutsideNav(event.target)} className="stage-gradient relative flex h-dvh flex-col overflow-hidden text-slate-100">
       {controlsOpen ? <header className="flex h-14 shrink-0 items-center gap-2 border-b border-slate-800 bg-slate-950/80 px-3 backdrop-blur-xl sm:h-16 sm:px-5">
-        <Link href={`/setlists/${setlist.id}`} className="flex size-10 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white" aria-label="Salir del modo escenario"><X className="size-5" /></Link>
-        <div className="min-w-0"><p className="truncate text-xs font-bold uppercase tracking-wider text-indigo-300">{setlist.name}</p><p className="mt-0.5 truncate text-sm font-semibold text-slate-300">{songIndex + 1} de {setlist.items.length} · {song.title}</p></div>
+        <Link href={backHref} className="flex size-10 items-center justify-center rounded-xl text-slate-400 hover:bg-slate-800 hover:text-white" aria-label="Salir del modo escenario"><X className="size-5" /></Link>
+        <div className="min-w-0"><p className="truncate text-xs font-bold uppercase tracking-wider text-indigo-300">{title}</p><p className="mt-0.5 truncate text-sm font-semibold text-slate-300">{songIndex + 1} de {items.length} · {song.title}</p></div>
         <div className="ml-auto flex items-center gap-1.5">
           <button onClick={() => setControlsOpen(false)} className="flex size-10 items-center justify-center rounded-xl bg-indigo-500 text-white" aria-label="Ocultar controles" title="Ocultar controles"><Settings2 className="size-5" /></button>
           <button onClick={() => void toggleFullscreen()} className="flex size-10 items-center justify-center rounded-xl text-slate-300 hover:bg-slate-800" aria-label={fullscreen ? "Salir de pantalla completa" : "Pantalla completa"}>{fullscreen ? <Minimize2 className="size-5" /> : <Maximize2 className="size-5" />}</button>
@@ -279,12 +286,12 @@ function StageContent({ setlist, songs }: { setlist: SetlistRecord; songs: SongR
           const shortcut = section.type === "verse" ? `V${number}` : section.type === "chorus" ? "C" : section.type === "bridge" ? "P" : section.type === "prechorus" ? "PC" : section.type === "intro" ? "I" : section.type === "outro" ? "F" : "M";
           return <button key={section.id} onClick={() => jumpToSection(index)} className={cx("flex size-9 shrink-0 items-center justify-center rounded-lg border text-[10px] font-extrabold transition", activeSection === index ? "border-indigo-200 bg-indigo-400 text-slate-950 ring-2 ring-white/65" : "border-slate-700 bg-slate-900/90 text-indigo-200 hover:bg-indigo-500 hover:text-white")} aria-label={`Ir a ${section.label}`} aria-pressed={activeSection === index} title={section.label}>{shortcut}</button>;
         })}</nav> : null}
-        {controlsOpen ? <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent" /> : null}
-        {controlsOpen ? <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-2 sm:inset-x-6 sm:bottom-5">
+        {items.length > 1 && controlsOpen ? <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950 via-slate-950/90 to-transparent" /> : null}
+        {items.length > 1 ? controlsOpen ? <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-2 sm:inset-x-6 sm:bottom-5">
           <button disabled={songIndex === 0} onClick={() => selectSong(songIndex - 1)} className="flex min-h-12 items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/95 px-3 text-sm font-bold text-slate-200 backdrop-blur disabled:opacity-30 sm:px-4"><ChevronLeft className="size-5" /><span className="hidden sm:inline">Anterior</span></button>
-          <div className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/95 px-3 py-2 backdrop-blur"><span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500 text-xs font-extrabold">{songIndex + 1}</span><span className="hidden min-w-0 sm:block"><strong className="block truncate text-xs">{song.title}</strong><span className="block truncate text-[10px] text-slate-400">{songIndex + 1} de {setlist.items.length}</span></span></div>
-          <button disabled={songIndex === setlist.items.length - 1} onClick={() => selectSong(songIndex + 1)} className="flex min-h-12 items-center gap-2 rounded-xl bg-indigo-500 px-3 text-sm font-bold text-white disabled:opacity-30 sm:px-4"><span className="hidden sm:inline">Siguiente</span><ChevronRight className="size-5" /></button>
-        </div> : <div className="absolute bottom-2 left-2 z-20 flex gap-1"><button onClick={() => selectSong(songIndex - 1)} disabled={songIndex === 0} className="flex size-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-950/90 disabled:opacity-30" aria-label="Canción anterior"><ChevronLeft className="size-4" /></button><button onClick={() => selectSong(songIndex + 1)} disabled={songIndex === setlist.items.length - 1} className="flex size-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-950/90 disabled:opacity-30" aria-label="Canción siguiente"><ChevronRight className="size-4" /></button></div>}
+          <div className="flex min-w-0 items-center gap-2 rounded-xl border border-slate-700 bg-slate-900/95 px-3 py-2 backdrop-blur"><span className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-indigo-500 text-xs font-extrabold">{songIndex + 1}</span><span className="hidden min-w-0 sm:block"><strong className="block truncate text-xs">{song.title}</strong><span className="block truncate text-[10px] text-slate-400">{songIndex + 1} de {items.length}</span></span></div>
+          <button disabled={songIndex === items.length - 1} onClick={() => selectSong(songIndex + 1)} className="flex min-h-12 items-center gap-2 rounded-xl bg-indigo-500 px-3 text-sm font-bold text-white disabled:opacity-30 sm:px-4"><span className="hidden sm:inline">Siguiente</span><ChevronRight className="size-5" /></button>
+        </div> : <div className="absolute bottom-2 left-2 z-20 flex gap-1"><button onClick={() => selectSong(songIndex - 1)} disabled={songIndex === 0} className="flex size-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-950/90 disabled:opacity-30" aria-label="Canción anterior"><ChevronLeft className="size-4" /></button><button onClick={() => selectSong(songIndex + 1)} disabled={songIndex === items.length - 1} className="flex size-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-950/90 disabled:opacity-30" aria-label="Canción siguiente"><ChevronRight className="size-4" /></button></div> : null}
       </div>
     </main>
   );
